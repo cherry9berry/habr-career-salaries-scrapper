@@ -21,24 +21,26 @@ pytest = "^8.4.1"
 pytest-cov = "^4.1.0"
 pytest-asyncio = "^0.23.5"
 coverage = "^7.3.2"
-ruff = "^0.3.0"
-black = "^24.3.0"
-mypy = "^1.9.0"
+ruff = "^0.3.7"
+black = "^25.1.0"
+mypy = "^1.17.0"
+types-requests = "^2.31.0.20240106"
+types-PyYAML = "^6.0.12.20240311"
 
 [build-system]
 requires = ["poetry-core>=1.5.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.black]
-line-length = 100
+line-length = 120
 skip-string-normalization = true
 
 [tool.ruff]
 line-length = 120
 
 [tool.ruff.lint]
-select = ["E", "F"]          # только основные ошибки
-ignore = ["E501", "F401", "I001"]  # длинные строки, неиспользуемые импорты, сортировка
+select = ["E", "F"]
+ignore = ["E501", "F401", "I001"]
 
 [tool.mypy]
 python_version = "3.9"
