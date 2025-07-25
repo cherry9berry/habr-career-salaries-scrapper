@@ -3,7 +3,7 @@ Configuration parser implementation
 """
 
 import csv
-from typing import List, Set
+from typing import List, Set, Tuple
 from pathlib import Path
 
 from src.core import IConfigParser, ScrapingConfig
@@ -38,7 +38,7 @@ class CsvConfigParser(IConfigParser):
             # Determine if we need combinations
             if len(valid_headers) > 1:
                 # For now, create pairs of headers for combinations
-                combinations = []
+                combinations: List[Tuple[str, ...]] = []
                 headers_list = list(valid_headers)
                 for i in range(len(headers_list)):
                     for j in range(i + 1, len(headers_list)):

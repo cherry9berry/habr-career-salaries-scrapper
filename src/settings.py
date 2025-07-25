@@ -1,7 +1,7 @@
 """Application settings using Pydantic BaseSettings"""
 
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Union
 from pydantic import BaseSettings, Field
 import yaml
 from dotenv import load_dotenv
@@ -39,7 +39,7 @@ class Settings(BaseSettings):
         )
 
     @classmethod
-    def load(cls, yaml_path: Path | str = "config.yaml", env_file: str = ".env") -> "Settings":
+    def load(cls, yaml_path: Union[Path, str] = "config.yaml", env_file: str = ".env") -> "Settings":
         load_dotenv(env_file)
         path = Path(yaml_path)
         if path.exists():

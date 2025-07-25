@@ -18,7 +18,7 @@ class PostgresRepository(IRepository):
 
     def __init__(self, config: Dict[str, Any]):
         self.config = config
-        self._pool: SimpleConnectionPool | None = None
+        self._pool: Optional[SimpleConnectionPool] = None
         self.transactions: Dict[str, list[SalaryData]] = {}
 
     # ---------- Pool helpers ----------
