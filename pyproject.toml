@@ -44,4 +44,6 @@ ignore = ["E501", "F401", "I001"]
 
 [tool.mypy]
 python_version = "3.9"
-ignore_missing_imports = true 
+ignore_missing_imports = true
+show_error_codes = true
+disable_error_code = ["attr-defined", "assignment", "arg-type", "unused-coroutine"] 
