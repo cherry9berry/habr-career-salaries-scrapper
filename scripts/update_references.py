@@ -81,9 +81,7 @@ def main():
         choices=["specializations", "skills", "regions", "companies"],
         help="Reference table to update",
     )
-    parser.add_argument(
-        "file", help="Excel file with reference data (must have 'title' and 'alias' columns)"
-    )
+    parser.add_argument("file", help="Excel file with reference data (must have 'title' and 'alias' columns)")
 
     args = parser.parse_args()
 

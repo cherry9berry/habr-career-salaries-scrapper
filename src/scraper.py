@@ -13,17 +13,13 @@ import uuid
 
 from src.core import IApiClient, IScraper, IRepository, ScrapingConfig, SalaryData, Reference
 
-warnings.filterwarnings(
-    "ignore", category=requests.packages.urllib3.exceptions.InsecureRequestWarning
-)
+warnings.filterwarnings("ignore", category=requests.packages.urllib3.exceptions.InsecureRequestWarning)
 
 
 class HabrApiClient(IApiClient):
     """Habr Career API client implementation"""
 
-    def __init__(
-        self, url: str, delay_min: float = 1.5, delay_max: float = 2.5, retry_attempts: int = 3
-    ):
+    def __init__(self, url: str, delay_min: float = 1.5, delay_max: float = 2.5, retry_attempts: int = 3):
         self.url = url
         self.delay_min = delay_min
         self.delay_max = delay_max
