@@ -1,0 +1,42 @@
+[tool.poetry]
+name = "salary-scraper"
+version = "0.1.0"
+description = "Async salary scraper for Habr Career"
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+requests = "^2.31.0"
+aiohttp = "^3.9.3"
+psycopg2-binary = "^2.9.9"
+pandas = "^2.1.4"
+openpyxl = "^3.1.2"
+python-dotenv = "^1.0.0"
+pydantic = "^2.6.1"
+rich = "^13.7.0"
+typer = "^0.9.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.1"
+pytest-cov = "^4.1.0"
+pytest-asyncio = "^0.23.5"
+coverage = "^7.3.2"
+ruff = "^0.3.0"
+black = "^24.3.0"
+mypy = "^1.9.0"
+
+[build-system]
+requires = ["poetry-core>=1.5.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 100
+skip-string-normalization = true
+
+[tool.ruff]
+line-length = 100
+select = ["E", "F", "I"]
+
+[tool.mypy]
+python_version = "3.9"
+ignore_missing_imports = true 
