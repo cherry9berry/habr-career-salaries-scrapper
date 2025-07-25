@@ -2,7 +2,6 @@
 Salary scraper main entry point with new interface
 """
 import argparse
-import json
 import sys
 from pathlib import Path
 from datetime import datetime
@@ -10,12 +9,12 @@ from datetime import datetime
 from src.database import PostgresRepository
 from src.scraper import HabrApiClient, SalaryScraper
 from src.config_parser import CsvConfigParser, DefaultConfigParser
+from src.settings import Settings
 
 
-def load_config() -> dict:
-    """Load application configuration"""
-    with open("config.json", "r", encoding="utf-8") as f:
-        return json.load(f)
+def load_config() -> Settings:
+    """Load application configuration using pydantic Settings"""
+    return Settings.load("config.yaml")
 
 
 def parse_arguments():
@@ -49,7 +48,7 @@ def main():
         args = parse_arguments()
         
         # Load app configuration
-        config = load_config()
+        settings = load_config()
         
         print(f"Salary scraper started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         
@@ -68,12 +67,12 @@ def main():
             scraping_config = config_parser.parse()
             
         # Initialize components
-        repository = PostgresRepository(config["database"])
+        repository = PostgresRepository(settings.database.model_dump())
         api_client = HabrApiClient(
-            url=config["api"]["url"],
-            delay_min=config["api"]["delay_min"],
-            delay_max=config["api"]["delay_max"],
-            retry_attempts=config["api"]["retry_attempts"]
+            url=settings.api.url,
+            delay_min=settings.api.delay_min,
+            delay_max=settings.api.delay_max,
+            retry_attempts=settings.api.retry_attempts
         )
         scraper = SalaryScraper(repository, api_client)
         

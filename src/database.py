@@ -2,7 +2,8 @@
 Database implementation for salary scraper
 """
 import psycopg2
-from psycopg2.extras import Json
+from psycopg2.extras import Json, execute_values
+from psycopg2.pool import SimpleConnectionPool
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 import json
@@ -16,17 +17,25 @@ class PostgresRepository(IRepository):
     
     def __init__(self, config: Dict[str, Any]):
         self.config = config
-        self.conn = None
-        self.transactions = {}  # transaction_id -> list of changes
-        
+        self._pool: SimpleConnectionPool | None = None
+        self.transactions: Dict[str, list[SalaryData]] = {}
+
+    # ---------- Pool helpers ----------
+
+    def _init_pool(self):
+        if self._pool is None:
+            self._pool = SimpleConnectionPool(minconn=1, maxconn=10, **self.config)
+            
     @contextmanager
     def get_connection(self):
-        """Context manager for database connection"""
-        conn = psycopg2.connect(**self.config)
+        """Context manager: obtain connection from pool"""
+        self._init_pool()
+        assert self._pool is not None
+        conn = self._pool.getconn()
         try:
             yield conn
         finally:
-            conn.close()
+            self._pool.putconn(conn)
             
     def get_references(self, table_name: str, limit: int = 2000) -> List[Reference]:
         """Get references from database"""
@@ -37,14 +46,15 @@ class PostgresRepository(IRepository):
         with self.get_connection() as conn:
             cursor = conn.cursor()
             query = f"""
-                SELECT id, title, alias
-                FROM {table_name}
-                WHERE created_at = (SELECT MAX(created_at) FROM {table_name})
-                ORDER BY id
-                LIMIT %s
-            """
+                    SELECT id, title, alias
+                    FROM {table_name}
+                    WHERE created_at = (SELECT MAX(created_at) FROM {table_name})
+                    ORDER BY id
+                    LIMIT %s
+                """
             cursor.execute(query, (limit,))
             rows = cursor.fetchall()
+            cursor.close()
             
         return [Reference(id=row[0], title=row[1], alias=row[2]) for row in rows]
         
@@ -67,56 +77,42 @@ class PostgresRepository(IRepository):
             
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            
-            # Start transaction
             cursor.execute("BEGIN")
-            
+
+            field_mapping = {
+                'specializations': 'specialization_id',
+                'skills': 'skills_1',
+                'regions': 'region_id',
+                'companies': 'company_id'
+            }
+
+            # Group rows by field for bulk insert
+            bulk_dict: Dict[str, list[tuple]] = {}
+            for rep in reports:
+                field = field_mapping.get(rep.reference_type)
+                if not field:
+                    continue
+                tup = (rep.reference_id, Json(rep.data), datetime.now())
+                bulk_dict.setdefault(field, []).append(tup)
+
             try:
-                # Insert all reports
-                for report in reports:
-                    field_mapping = {
-                        'specializations': 'specialization_id',
-                        'skills': 'skills_1',
-                        'regions': 'region_id', 
-                        'companies': 'company_id'
-                    }
-                    
-                    field = field_mapping.get(report.reference_type)
-                    if not field:
-                        continue
-                        
-                    query = f"""
-                        INSERT INTO reports ({field}, data, fetched_at)
-                        VALUES (%s, %s, %s)
-                    """
-                    cursor.execute(query, (
-                        report.reference_id,
-                        Json(report.data),
-                        datetime.now()
-                    ))
-                
-                # Log the operation
-                cursor.execute("""
-                    INSERT INTO report_log (report_date, report_type, total_variants, success_count, duration_seconds, status)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                """, (
-                    datetime.now(),
-                    'batch_import',
-                    len(reports),
-                    len(reports),
-                    0,
-                    'success'
-                ))
-                
+                for field, rows in bulk_dict.items():
+                    query = f"INSERT INTO reports ({field}, data, fetched_at) VALUES %s"
+                    execute_values(cursor, query, rows)
+
+                cursor.execute(
+                    "INSERT INTO report_log (report_date, report_type, total_variants, success_count, duration_seconds, status) VALUES (%s,%s,%s,%s,%s,%s)",
+                    (datetime.now(), 'batch_import', len(reports), len(reports), 0, 'success')
+                )
+
                 conn.commit()
                 print(f"Successfully committed {len(reports)} reports")
-                
             except Exception as e:
                 conn.rollback()
                 print(f"Error committing transaction: {e}")
                 raise
             finally:
-                # Clear transaction buffer
+                cursor.close()
                 del self.transactions[transaction_id]
                 
     def rollback_transaction(self, transaction_id: str) -> None:
