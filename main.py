@@ -1,6 +1,7 @@
 """
 Salary scraper main entry point with new interface
 """
+
 import argparse
 import sys
 from pathlib import Path
@@ -29,15 +30,15 @@ Examples:
 CSV file format:
   First row should contain headers: specializations,skills,regions,companies
   Use only the headers you need for your scraping task
-        """
+        """,
     )
-    
+
     parser.add_argument(
         "config_file",
         nargs="?",
-        help="CSV configuration file (optional). If not provided, scrapes all reference types individually"
+        help="CSV configuration file (optional). If not provided, scrapes all reference types individually",
     )
-    
+
     return parser.parse_args()
 
 
@@ -46,18 +47,18 @@ def main():
     try:
         # Parse arguments
         args = parse_arguments()
-        
+
         # Load app configuration
         settings = load_config()
-        
+
         print(f"Salary scraper started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        
+
         # Parse scraping configuration
         if args.config_file:
             if not args.config_file.endswith('.csv'):
                 print(f"Error: Configuration file must be a CSV file, got: {args.config_file}")
                 sys.exit(1)
-                
+
             print(f"Using configuration from: {args.config_file}")
             config_parser = CsvConfigParser()
             scraping_config = config_parser.parse(args.config_file)
@@ -65,31 +66,31 @@ def main():
             print("Using default configuration (all reference types)")
             config_parser = DefaultConfigParser()
             scraping_config = config_parser.parse()
-            
+
         # Initialize components
         repository = PostgresRepository(settings.database.model_dump())
         api_client = HabrApiClient(
             url=settings.api.url,
             delay_min=settings.api.delay_min,
             delay_max=settings.api.delay_max,
-            retry_attempts=settings.api.retry_attempts
+            retry_attempts=settings.api.retry_attempts,
         )
         scraper = SalaryScraper(repository, api_client)
-        
+
         # Execute scraping
         print(f"Configuration: {scraping_config.reference_types}")
         if scraping_config.combinations:
             print(f"Combinations: {scraping_config.combinations}")
-            
+
         success = scraper.scrape(scraping_config)
-        
+
         if success:
             print("Scraping completed successfully")
             sys.exit(0)
         else:
             print("Scraping failed")
             sys.exit(1)
-            
+
     except FileNotFoundError as e:
         print(f"File not found: {e}")
         sys.exit(1)

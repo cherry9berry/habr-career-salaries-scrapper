@@ -1,14 +1,24 @@
 """Async API client using aiohttp"""
+
 import aiohttp
 import asyncio
 import random
 import urllib.parse
 from typing import Dict, Any, Optional
 
+
 class AsyncHabrApiClient:
     """Асинхронный клиент Habr Career API"""
 
-    def __init__(self, url: str, delay_min: float = 1.5, delay_max: float = 2.5, retry_attempts: int = 3, *, timeout: int = 10):
+    def __init__(
+        self,
+        url: str,
+        delay_min: float = 1.5,
+        delay_max: float = 2.5,
+        retry_attempts: int = 3,
+        *,
+        timeout: int = 10,
+    ):
         self.url = url
         self.delay_min = delay_min
         self.delay_max = delay_max
@@ -41,4 +51,4 @@ class AsyncHabrApiClient:
                     print(f"Async API error (attempt {attempt+1}/{self.retry_attempts}): {e}")
                     if attempt < self.retry_attempts - 1:
                         await asyncio.sleep(self.delay_max)
-        return None 
+        return None

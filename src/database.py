@@ -1,6 +1,7 @@
 """
 Database implementation for salary scraper
 """
+
 import psycopg2
 from psycopg2.extras import Json, execute_values
 from psycopg2.pool import SimpleConnectionPool
@@ -14,7 +15,7 @@ from src.core import IRepository, Reference, SalaryData
 
 class PostgresRepository(IRepository):
     """PostgreSQL implementation of repository"""
-    
+
     def __init__(self, config: Dict[str, Any]):
         self.config = config
         self._pool: SimpleConnectionPool | None = None
@@ -25,7 +26,7 @@ class PostgresRepository(IRepository):
     def _init_pool(self):
         if self._pool is None:
             self._pool = SimpleConnectionPool(minconn=1, maxconn=10, **self.config)
-            
+
     @contextmanager
     def get_connection(self):
         """Context manager: obtain connection from pool"""
@@ -36,13 +37,13 @@ class PostgresRepository(IRepository):
             yield conn
         finally:
             self._pool.putconn(conn)
-            
+
     def get_references(self, table_name: str, limit: int = 2000) -> List[Reference]:
         """Get references from database"""
         valid_tables = ["specializations", "skills", "regions", "companies"]
         if table_name not in valid_tables:
             raise ValueError(f"Invalid table: {table_name}. Must be one of {valid_tables}")
-            
+
         with self.get_connection() as conn:
             cursor = conn.cursor()
             query = f"""
@@ -55,26 +56,26 @@ class PostgresRepository(IRepository):
             cursor.execute(query, (limit,))
             rows = cursor.fetchall()
             cursor.close()
-            
+
         return [Reference(id=row[0], title=row[1], alias=row[2]) for row in rows]
-        
+
     def save_report(self, data: SalaryData, transaction_id: str) -> bool:
         """Save report to transaction buffer"""
         if transaction_id not in self.transactions:
             self.transactions[transaction_id] = []
-            
+
         self.transactions[transaction_id].append(data)
         return True
-        
+
     def commit_transaction(self, transaction_id: str) -> None:
         """Commit all changes for transaction"""
         if transaction_id not in self.transactions:
             return
-            
+
         reports = self.transactions[transaction_id]
         if not reports:
             return
-            
+
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("BEGIN")
@@ -83,7 +84,7 @@ class PostgresRepository(IRepository):
                 'specializations': 'specialization_id',
                 'skills': 'skills_1',
                 'regions': 'region_id',
-                'companies': 'company_id'
+                'companies': 'company_id',
             }
 
             # Group rows by field for bulk insert
@@ -102,7 +103,7 @@ class PostgresRepository(IRepository):
 
                 cursor.execute(
                     "INSERT INTO report_log (report_date, report_type, total_variants, success_count, duration_seconds, status) VALUES (%s,%s,%s,%s,%s,%s)",
-                    (datetime.now(), 'batch_import', len(reports), len(reports), 0, 'success')
+                    (datetime.now(), 'batch_import', len(reports), len(reports), 0, 'success'),
                 )
 
                 conn.commit()
@@ -114,9 +115,9 @@ class PostgresRepository(IRepository):
             finally:
                 cursor.close()
                 del self.transactions[transaction_id]
-                
+
     def rollback_transaction(self, transaction_id: str) -> None:
         """Rollback transaction on error"""
         if transaction_id in self.transactions:
             del self.transactions[transaction_id]
-            print(f"Rolled back transaction {transaction_id}") 
+            print(f"Rolled back transaction {transaction_id}")

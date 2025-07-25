@@ -1,4 +1,5 @@
 """Async version of SalaryScraper"""
+
 import asyncio
 from typing import List
 from src.core import IRepository, ScrapingConfig, Reference, SalaryData
@@ -8,7 +9,9 @@ from src.async_api import AsyncHabrApiClient
 class AsyncSalaryScraper:
     """Асинхронный скрапер с параллельными запросами"""
 
-    def __init__(self, repository: IRepository, api_client: AsyncHabrApiClient, concurrency: int = 10):
+    def __init__(
+        self, repository: IRepository, api_client: AsyncHabrApiClient, concurrency: int = 10
+    ):
         self.repository = repository
         self.api_client = api_client
         self.semaphore = asyncio.Semaphore(concurrency)
@@ -45,4 +48,4 @@ class AsyncSalaryScraper:
             "companies": ("company_alias", ref.alias),
         }
         key, value = mapping.get(ref_type, (None, None))
-        return {key: value} if key else {} 
+        return {key: value} if key else {}

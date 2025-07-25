@@ -1,4 +1,5 @@
 """Application settings using Pydantic BaseSettings"""
+
 from pathlib import Path
 from typing import Any, Dict
 from pydantic import BaseSettings, Field
@@ -7,6 +8,7 @@ from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+
 class DatabaseSettings(BaseSettings):
     host: str = "localhost"
     port: int = 5432
@@ -14,11 +16,13 @@ class DatabaseSettings(BaseSettings):
     user: str = "scraper"
     password: str = "password"
 
+
 class ApiSettings(BaseSettings):
     url: str
     delay_min: float = 1.5
     delay_max: float = 2.5
     retry_attempts: int = 3
+
 
 class Settings(BaseSettings):
     database: DatabaseSettings
@@ -42,4 +46,4 @@ class Settings(BaseSettings):
             data: Dict[str, Any] = yaml.safe_load(path.read_text())
         else:
             raise FileNotFoundError(f"Config YAML not found: {yaml_path}")
-        return cls.model_validate(data) 
+        return cls.model_validate(data)

@@ -1,1 +1,1 @@
-# Salary scraper package 
+# Salary scraper package
