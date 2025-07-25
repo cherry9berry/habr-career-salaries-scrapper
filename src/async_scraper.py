@@ -9,9 +9,7 @@ from src.async_api import AsyncHabrApiClient
 class AsyncSalaryScraper:
     """Асинхронный скрапер с параллельными запросами"""
 
-    def __init__(
-        self, repository: IRepository, api_client: AsyncHabrApiClient, concurrency: int = 10
-    ):
+    def __init__(self, repository: IRepository, api_client: AsyncHabrApiClient, concurrency: int = 10):
         self.repository = repository
         self.api_client = api_client
         self.semaphore = asyncio.Semaphore(concurrency)

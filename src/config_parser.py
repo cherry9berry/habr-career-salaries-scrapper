@@ -44,9 +44,7 @@ class CsvConfigParser(IConfigParser):
                     for j in range(i + 1, len(headers_list)):
                         combinations.append((headers_list[i], headers_list[j]))
 
-                return ScrapingConfig(
-                    reference_types=list(valid_headers), combinations=combinations
-                )
+                return ScrapingConfig(reference_types=list(valid_headers), combinations=combinations)
             else:
                 # Single header - no combinations needed
                 return ScrapingConfig(reference_types=list(valid_headers), combinations=None)
@@ -57,6 +55,4 @@ class DefaultConfigParser(IConfigParser):
 
     def parse(self, source: str = "") -> ScrapingConfig:
         """Return default configuration"""
-        return ScrapingConfig(
-            reference_types=['specializations', 'skills', 'regions', 'companies'], combinations=None
-        )
+        return ScrapingConfig(reference_types=['specializations', 'skills', 'regions', 'companies'], combinations=None)
