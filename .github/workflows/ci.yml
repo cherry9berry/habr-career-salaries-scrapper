@@ -22,8 +22,9 @@ jobs:
           pip install -r requirements.txt
       - name: Run linters
         run: |
-          pip install ruff black mypy
-          ruff src tests
+          python -m pip install --upgrade pip
+          pip install "ruff==0.3.*" black mypy
+          ruff check src tests
           black --check .
           mypy src --ignore-missing-imports
       - name: Run tests
