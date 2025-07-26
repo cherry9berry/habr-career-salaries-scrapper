@@ -48,9 +48,16 @@ class TestCsvConfigParser(unittest.TestCase):
         self.assertIn("skills", config.reference_types)
         self.assertIn("regions", config.reference_types)
         self.assertIsNotNone(config.combinations)
-        # Check that combination exists regardless of order
-        combinations_tuples = [tuple(sorted(c)) for c in config.combinations]
-        self.assertIn(("regions", "skills"), combinations_tuples)
+        # Check specific combinations from CSV data
+        expected_combinations = [
+            (('skills', 'Python'), ('regions', 'Moscow')),
+            (('skills', 'Java'), ('regions', 'SPB')),
+        ]
+        for expected_combo in expected_combinations:
+            # Check that combination exists regardless of order
+            combo_sorted = tuple(sorted(expected_combo))
+            combinations_sorted = [tuple(sorted(c)) for c in config.combinations]
+            self.assertIn(combo_sorted, combinations_sorted)
 
     def test_parse_all_headers(self):
         """Test parsing CSV with all valid headers"""
