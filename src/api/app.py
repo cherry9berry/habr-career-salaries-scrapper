@@ -206,6 +206,7 @@ async def start_full_scraping(background_tasks: BackgroundTasks):
         raise HTTPException(status_code=409, detail="Scraping already in progress")
 
     job_id = str(uuid.uuid4())
+    print(f"[API] Received full scraping request, job_id: {job_id}")
     create_lock(job_id)
 
     # Create default config parser
@@ -213,6 +214,7 @@ async def start_full_scraping(background_tasks: BackgroundTasks):
 
     # Start background task
     background_tasks.add_task(run_scraper_task, config_parser, job_id)
+    print(f"[API] Background task started for job {job_id}")
 
     storage_type = "SQLite" if USE_SQLITE_TEMP else "PostgreSQL temp tables"
 
@@ -238,6 +240,7 @@ async def start_custom_scraping(
         raise HTTPException(status_code=400, detail="File must be a CSV file")
 
     job_id = str(uuid.uuid4())
+    print(f"[API] Received custom scraping request with file: {config.filename}, job_id: {job_id}")
     create_lock(job_id)
 
     try:
@@ -253,6 +256,7 @@ async def start_custom_scraping(
 
         # Start background task
         background_tasks.add_task(run_scraper_task, config_parser, job_id)
+        print(f"[API] Background task started for job {job_id} with CSV config")
 
         # Schedule cleanup of temp file
         background_tasks.add_task(cleanup_temp_file, temp_file_path)
