@@ -160,7 +160,7 @@ class TestErrorHandling(unittest.TestCase):
 
     @unittest.skipIf(os.environ.get('GITHUB_ACTIONS'), "Skip DB tests in CI")
     def test_database_transaction_with_no_data(self):
-        """Test database transaction with no data"""        
+        """Test database transaction with no data"""
         repo = PostgresRepository({"host": "localhost", "database": "test"})
 
         # Commit empty transaction - will fail in CI but pass locally
@@ -184,7 +184,7 @@ class TestErrorHandling(unittest.TestCase):
 
     @unittest.skipIf(os.environ.get('GITHUB_ACTIONS'), "Skip DB tests in CI")
     def test_invalid_reference_type_in_commit(self):
-        """Test committing with invalid reference type"""        
+        """Test committing with invalid reference type"""
         repo = PostgresRepository({"host": "localhost", "database": "test"})
 
         # Add data with invalid reference type
@@ -192,7 +192,7 @@ class TestErrorHandling(unittest.TestCase):
         salary_data = SalaryData(
             data={"test": "data"}, reference_id=1, reference_type="invalid_type"  # Not in field mapping
         )
-        
+
         try:
             repo.save_report(salary_data, transaction_id)
             repo.commit_transaction(transaction_id)
