@@ -182,7 +182,7 @@ async def start_custom_scraping(
         raise HTTPException(status_code=409, detail="Scraping already in progress")
 
     # Validate file type
-    if not config.filename.endswith('.csv'):
+    if not config.filename or not config.filename.endswith('.csv'):
         raise HTTPException(status_code=400, detail="File must be a CSV file")
 
     job_id = str(uuid.uuid4())
