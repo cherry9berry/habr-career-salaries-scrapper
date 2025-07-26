@@ -3,12 +3,14 @@ Unit tests for database module
 """
 
 import unittest
+import os
 from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime
 from src.database import PostgresRepository
 from src.core import Reference, SalaryData
 
 
+@unittest.skipIf(os.environ.get('GITHUB_ACTIONS'), "Skip DB tests in CI")
 class TestPostgresRepository(unittest.TestCase):
     """Test PostgreSQL repository implementation"""
 

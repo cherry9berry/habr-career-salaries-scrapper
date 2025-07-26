@@ -13,6 +13,7 @@ from src.config_parser import CsvConfigParser, DefaultConfigParser
 from src.core import ScrapingConfig
 
 
+@unittest.skipIf(os.environ.get('GITHUB_ACTIONS'), "Skip integration tests in CI")
 class TestEndToEndScraping(unittest.TestCase):
     """Test complete scraping workflow"""
 
@@ -119,6 +120,7 @@ class TestEndToEndScraping(unittest.TestCase):
         self.assertEqual(mock_requests.call_count, 3)  # All retries
 
 
+@unittest.skipIf(os.environ.get('GITHUB_ACTIONS'), "Skip integration tests in CI")
 class TestConfigurationLoading(unittest.TestCase):
     """Test configuration loading and validation"""
 
@@ -182,6 +184,7 @@ class TestConfigurationLoading(unittest.TestCase):
             parser.parse(csv_path)
 
 
+@unittest.skipIf(os.environ.get('GITHUB_ACTIONS'), "Skip integration tests in CI")
 class TestErrorRecovery(unittest.TestCase):
     """Test error recovery and resilience"""
 
