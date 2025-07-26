@@ -28,6 +28,9 @@ app = FastAPI(
 LOCK_FILE = "/tmp/scraper.lock"
 current_job_id: Optional[str] = None
 
+# Configuration: use SQLite for temporary storage (set via env var)
+USE_SQLITE_TEMP = os.environ.get("USE_SQLITE_TEMP", "false").lower() == "true"
+
 
 def is_scraping_running() -> bool:
     """Check if scraping is currently running"""
@@ -55,8 +58,16 @@ async def run_scraper_task(config_parser, job_id: str):
         # Load settings
         settings = Settings.load("config.yaml")
         
-        # Create components
-        repository = PostgresRepository(asdict(settings.database))
+        # Choose repository implementation based on configuration
+        if USE_SQLITE_TEMP:
+            print(f"🗄️  Using SQLite temporary storage for job {job_id}")
+            from src.sqlite_storage import PostgresRepositoryWithSQLite
+            repository = PostgresRepositoryWithSQLite(asdict(settings.database))
+        else:
+            print(f"🗄️  Using PostgreSQL temp tables for job {job_id}")
+            repository = PostgresRepository(asdict(settings.database))
+        
+        # Create API client and scraper
         api_client = HabrApiClient(
             url=settings.api.url,
             delay_min=settings.api.delay_min,
@@ -89,7 +100,12 @@ async def run_scraper_task(config_parser, job_id: str):
 @app.get("/")
 async def root():
     """Root endpoint"""
-    return {"message": "Salary Scraper API", "version": "1.0.0"}
+    storage_type = "SQLite" if USE_SQLITE_TEMP else "PostgreSQL temp tables"
+    return {
+        "message": "Salary Scraper API", 
+        "version": "1.0.0",
+        "temp_storage": storage_type
+    }
 
 
 @app.get("/health")
@@ -106,9 +122,12 @@ async def health_check():
             cursor.execute("SELECT 1")
             cursor.close()
         
+        storage_type = "SQLite" if USE_SQLITE_TEMP else "PostgreSQL temp tables"
+        
         return {
             "status": "healthy",
             "database": "connected",
+            "temp_storage": storage_type,
             "timestamp": datetime.now().isoformat()
         }
     except Exception as e:
@@ -125,15 +144,19 @@ async def health_check():
 @app.get("/api/status")
 async def get_status():
     """Get current scraping status"""
+    storage_type = "SQLite" if USE_SQLITE_TEMP else "PostgreSQL temp tables"
+    
     if is_scraping_running():
         return {
             "status": "running",
             "job_id": current_job_id,
+            "temp_storage": storage_type,
             "message": "Scraping in progress"
         }
     else:
         return {
             "status": "idle",
+            "temp_storage": storage_type,
             "message": "No scraping in progress"
         }
 
@@ -156,9 +179,12 @@ async def start_full_scraping(background_tasks: BackgroundTasks):
     # Start background task
     background_tasks.add_task(run_scraper_task, config_parser, job_id)
     
+    storage_type = "SQLite" if USE_SQLITE_TEMP else "PostgreSQL temp tables"
+    
     return {
         "status": "started",
         "job_id": job_id,
+        "temp_storage": storage_type,
         "message": "Full scraping initiated",
         "timestamp": datetime.now().isoformat()
     }
@@ -203,9 +229,12 @@ async def start_custom_scraping(
         # Schedule cleanup of temp file
         background_tasks.add_task(cleanup_temp_file, temp_file_path)
         
+        storage_type = "SQLite" if USE_SQLITE_TEMP else "PostgreSQL temp tables"
+        
         return {
             "status": "started",
             "job_id": job_id,
+            "temp_storage": storage_type,
             "message": f"Custom scraping initiated with {config.filename}",
             "timestamp": datetime.now().isoformat()
         }

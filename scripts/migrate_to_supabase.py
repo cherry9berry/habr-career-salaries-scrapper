@@ -9,11 +9,11 @@ import traceback
 import psycopg2
 from pathlib import Path
 
-# Supabase connection params
-SUPABASE_HOST = "db.cehitgienxwzplcxbfdk.supabase.co"
+# Supabase connection params (Session pooler - IPv4 compatible)
+SUPABASE_HOST = "aws-0-eu-central-1.pooler.supabase.com"
 SUPABASE_PORT = 5432
 SUPABASE_DB = "postgres"
-SUPABASE_USER = "postgres"
+SUPABASE_USER = "postgres.cehitgienxwzplcxbfdk"
 SUPABASE_PASSWORD = "!!!!QQQQ2222"
 
 def execute_sql_file(conn, file_path):
@@ -40,32 +40,22 @@ def main():
     print(f"Port: {SUPABASE_PORT}")
     print(f"Database: {SUPABASE_DB}")
     print(f"User: {SUPABASE_USER}")
+    print("🔧 Using Session pooler (IPv4 compatible)")
     
     try:
-        # First method - connection string
-        conn_str = f"postgresql://{SUPABASE_USER}:{SUPABASE_PASSWORD}@{SUPABASE_HOST}:{SUPABASE_PORT}/{SUPABASE_DB}"
-        print(f"Trying connection string: {conn_str.replace(SUPABASE_PASSWORD, '********')}")
-        conn = psycopg2.connect(conn_str)
+        # Connect using Session pooler
+        conn = psycopg2.connect(
+            host=SUPABASE_HOST,
+            port=SUPABASE_PORT,
+            dbname=SUPABASE_DB,
+            user=SUPABASE_USER,
+            password=SUPABASE_PASSWORD
+        )
         print("Connected successfully!")
     except Exception as e:
-        print(f"❌ Method 1 failed: {str(e)}")
+        print(f"❌ Connection failed: {str(e)}")
         traceback.print_exc()
-        
-        try:
-            # Second method - separate parameters
-            print("\nTrying method 2 with separate parameters...")
-            conn = psycopg2.connect(
-                host=SUPABASE_HOST,
-                port=SUPABASE_PORT,
-                dbname=SUPABASE_DB,
-                user=SUPABASE_USER,
-                password=SUPABASE_PASSWORD
-            )
-            print("Connected successfully!")
-        except Exception as e:
-            print(f"❌ Method 2 failed: {str(e)}")
-            traceback.print_exc()
-            sys.exit(1)
+        sys.exit(1)
     
     # Get path to SQL files
     sql_dir = Path(__file__).parent.parent / "sql queries"
