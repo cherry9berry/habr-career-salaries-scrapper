@@ -40,16 +40,18 @@ class TestEndToEndScraping(unittest.TestCase):
             os.remove(os.path.join(self.temp_dir, file))
         os.rmdir(self.temp_dir)
         
+    @patch('src.database.execute_values')
     @patch('src.database.psycopg2.connect')
     @patch('src.scraper.requests.get')
     @patch('src.scraper.time.sleep')
-    def test_full_scraping_workflow(self, mock_sleep, mock_requests, mock_db_connect):
+    def test_full_scraping_workflow(self, mock_sleep, mock_requests, mock_db_connect, mock_execute_values):
         """Test complete scraping workflow from config to database"""
         # Setup database mock
         mock_conn = Mock()
         mock_cursor = Mock()
         mock_db_connect.return_value = mock_conn
         mock_conn.cursor.return_value = mock_cursor
+        
         mock_cursor.fetchall.return_value = [
             (1, "Python", "python"),
             (2, "Java", "java")
@@ -81,6 +83,7 @@ class TestEndToEndScraping(unittest.TestCase):
         self.assertTrue(result)
         mock_cursor.execute.assert_any_call("BEGIN")
         mock_conn.commit.assert_called()
+        mock_execute_values.assert_called()
         
     def test_csv_config_to_scraping(self):
         """Test CSV configuration parsing to scraping config"""
@@ -199,15 +202,17 @@ class TestConfigurationLoading(unittest.TestCase):
 class TestErrorRecovery(unittest.TestCase):
     """Test error recovery and resilience"""
     
+    @patch('src.database.execute_values')
     @patch('src.database.psycopg2.connect')
     @patch('src.scraper.requests.get')
-    def test_partial_api_failures(self, mock_requests, mock_db_connect):
+    def test_partial_api_failures(self, mock_requests, mock_db_connect, mock_execute_values):
         """Test handling partial API failures"""
         # Setup database mock
         mock_conn = Mock()
         mock_cursor = Mock()
         mock_db_connect.return_value = mock_conn
         mock_conn.cursor.return_value = mock_cursor
+        
         mock_cursor.fetchall.return_value = [
             (1, "Python", "python"),
             (2, "Java", "java"),
@@ -234,6 +239,7 @@ class TestErrorRecovery(unittest.TestCase):
         # Should succeed because 66% > 60%
         self.assertTrue(result)
         mock_conn.commit.assert_called()
+        mock_execute_values.assert_called()
         
     def test_transaction_rollback_on_error(self):
         """Test transaction rollback on critical error"""
