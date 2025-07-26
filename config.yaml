@@ -5,7 +5,7 @@ database:
   port: 5432  
   database: postgres
   user: postgres.cehitgienxwzplcxbfdk
-  password: !!!!QQQQ2222
+  password: "!!!!QQQQ2222"
   
   # Local PostgreSQL (commented out)
   # host: localhost
@@ -22,4 +22,9 @@ api:
   retry_attempts: 3
 
 # Scraping limits
-max_references: 2000 
+max_references: 2000
+
+# Temporary storage for scraping data
+# Set USE_SQLITE_TEMP=true in environment to use SQLite files instead of PostgreSQL temp tables
+# SQLite is better for: file-based storage, no additional connections, portable
+# PostgreSQL temp tables are better for: same database transactions, automatic cleanup 
