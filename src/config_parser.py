@@ -42,20 +42,21 @@ class CsvConfigParser(IConfigParser):
             if not headers:
                 raise ValueError("Empty CSV file or no headers found")
 
-            # Read all combinations
+            # Read all combinations from data rows
             combinations = []
             for row in reader:
                 # Skip empty rows
                 if not any(row.values()):
                     continue
-                combinations.append(tuple(sorted(row.keys())))
+                # Store the actual values from the row, not just keys
+                row_values = tuple((header, value) for header, value in row.items() if value.strip())
+                if row_values:
+                    combinations.append(row_values)
 
-            # Get unique combinations
-            unique_combinations = list(set(combinations))
-            if not unique_combinations:
+            if not combinations:
                 raise ValueError("No valid data rows found in CSV file")
 
-        return ScrapingConfig(reference_types=list(headers), combinations=unique_combinations)
+        return ScrapingConfig(reference_types=list(headers), combinations=combinations)
 
 
 class DefaultConfigParser(IConfigParser):

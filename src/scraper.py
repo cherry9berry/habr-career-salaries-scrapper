@@ -34,8 +34,8 @@ class HabrApiClient(IApiClient):
             api_params["spec_aliases[]"] = params['spec_alias']
         if 'skill_aliases' in params:
             api_params["skills[]"] = params['skill_aliases']
-        if 'region_alias' in params:
-            api_params["region_aliases[]"] = params['region_alias']
+        if 'region_aliases[]' in params:
+            api_params["region_aliases[]"] = params['region_aliases[]']
         if 'company_alias' in params:
             api_params["company_alias"] = params['company_alias']
 
@@ -134,18 +134,58 @@ class SalaryScraper(IScraper):
         return total, success
 
     def _scrape_combination(self, combination: tuple, transaction_id: str) -> tuple[int, int]:
-        """Scrape combination of reference types"""
-        # This is a simplified version - in real implementation you'd want to
-        # handle all possible combinations properly
-        print(f"Warning: Combination scraping not yet implemented for {combination}")
-        return 0, 0
+        """Scrape specific combination from CSV row"""
+        print(f"Processing combination: {combination}")
+
+        # New format: (('skills', 'Python'), ('regions', 'Moscow'))
+        combined_params = {}
+        ref_data = []
+
+        try:
+            for ref_type, value in combination:
+                # Find reference by alias/title
+                references = self.repository.get_references(ref_type)
+
+                # Look for reference by alias first, then by title
+                found_ref = None
+                for ref in references:
+                    if ref.alias.lower() == value.lower() or ref.title.lower() == value.lower():
+                        found_ref = ref
+                        break
+
+                if not found_ref:
+                    print(f"Reference not found: {ref_type}={value}")
+                    return 0, 0
+
+                # Build API parameters
+                params = self._build_params(ref_type, found_ref)
+                combined_params.update(params)
+                ref_data.append((ref_type, found_ref))
+
+            # Call API once with combined parameters
+            print(f"API call: {', '.join(f'{rt}={ref.title}' for rt, ref in ref_data)}")
+            data = self.api_client.fetch_salary_data(**combined_params)
+
+            if data:
+                # Save data for each reference type in the combination
+                for ref_type, ref in ref_data:
+                    salary_data = SalaryData(data=data, reference_id=ref.id, reference_type=ref_type)
+                    self.repository.save_report(salary_data, transaction_id)
+
+                return 1, 1  # 1 combination processed, 1 successful
+            else:
+                return 1, 0  # 1 combination processed, 0 successful
+
+        except Exception as e:
+            print(f"Error processing combination: {e}")
+            return 1, 0
 
     def _build_params(self, ref_type: str, ref: Reference) -> Dict[str, Any]:
         """Build API parameters based on reference type"""
         param_mapping = {
             'specializations': ('spec_alias', ref.alias),
             'skills': ('skill_aliases', [ref.alias]),
-            'regions': ('region_alias', ref.alias),
+            'regions': ('region_aliases[]', ref.alias),
             'companies': ('company_alias', ref.alias),
         }
 
