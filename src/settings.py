@@ -9,14 +9,13 @@ try:
 except ImportError:
     yaml = None
 
+# Flag to check if dotenv is available
+HAS_DOTENV = True
 try:
     from dotenv import load_dotenv
 except ImportError:
-
-    def load_dotenv(env_file):
-        """Dummy function when dotenv is not available"""
-        pass
-
+    HAS_DOTENV = False
+    load_dotenv = None
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -46,8 +45,8 @@ class Settings:
 
     @classmethod
     def load(cls, yaml_path: Union[Path, str] = "config.yaml", env_file: str = ".env") -> "Settings":
-        if load_dotenv:
-            load_dotenv(env_file)
+        if HAS_DOTENV:
+            load_dotenv(env_file)  # type: ignore
 
         path = Path(yaml_path)
 
