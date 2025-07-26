@@ -24,7 +24,7 @@ class CsvConfigParser(IConfigParser):
         file_path = source or self.csv_path
         if not file_path:
             raise ValueError("No CSV file path provided")
-            
+
         if not Path(file_path).exists():
             raise FileNotFoundError(f"Configuration file not found: {file_path}")
 
@@ -55,10 +55,7 @@ class CsvConfigParser(IConfigParser):
             if not unique_combinations:
                 raise ValueError("No valid data rows found in CSV file")
 
-        return ScrapingConfig(
-            reference_types=list(headers),
-            combinations=unique_combinations
-        )
+        return ScrapingConfig(reference_types=list(headers), combinations=unique_combinations)
 
 
 class DefaultConfigParser(IConfigParser):
@@ -66,7 +63,4 @@ class DefaultConfigParser(IConfigParser):
 
     def parse(self, source: Optional[str] = None) -> ScrapingConfig:
         """Parse default configuration (all reference types)"""
-        return ScrapingConfig(
-            reference_types=['specializations', 'skills', 'regions', 'companies'],
-            combinations=None
-        )
+        return ScrapingConfig(reference_types=['specializations', 'skills', 'regions', 'companies'], combinations=None)

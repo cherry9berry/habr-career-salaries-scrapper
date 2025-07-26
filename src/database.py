@@ -38,9 +38,10 @@ class PostgresRepository(IRepository):
         """Create temporary table for transaction"""
         table_name = f"temp_scraping_{transaction_id.replace('-', '_')}"
         cursor = conn.cursor()
-        
+
         # Create temporary table with same structure as reports
-        cursor.execute(f"""
+        cursor.execute(
+            f"""
             CREATE TEMPORARY TABLE {table_name} (
                 id SERIAL PRIMARY KEY,
                 specialization_id INTEGER,
@@ -50,7 +51,8 @@ class PostgresRepository(IRepository):
                 data JSONB NOT NULL,
                 fetched_at TIMESTAMP DEFAULT NOW()
             )
-        """)
+        """
+        )
         cursor.close()
 
     def _get_temp_table_name(self, transaction_id: str) -> str:
@@ -83,7 +85,7 @@ class PostgresRepository(IRepository):
             with self.get_connection() as conn:
                 table_name = self._get_temp_table_name(transaction_id)
                 cursor = conn.cursor()
-                
+
                 # Check if temp table exists, create if not
                 # Use a more reliable way to check temp table existence
                 try:
@@ -98,26 +100,29 @@ class PostgresRepository(IRepository):
                 # Determine field mapping
                 field_mapping = {
                     'specializations': 'specialization_id',
-                    'skills': 'skills_1', 
+                    'skills': 'skills_1',
                     'regions': 'region_id',
                     'companies': 'company_id',
                 }
-                
+
                 field_name = field_mapping.get(data.reference_type)
                 if not field_name:
                     cursor.close()
                     return False
 
                 # Insert into temporary table
-                cursor.execute(f"""
+                cursor.execute(
+                    f"""
                     INSERT INTO {table_name} ({field_name}, data, fetched_at)
                     VALUES (%s, %s, %s)
-                """, (data.reference_id, Json(data.data), datetime.now()))
-                
+                """,
+                    (data.reference_id, Json(data.data), datetime.now()),
+                )
+
                 conn.commit()
                 cursor.close()
                 return True
-                
+
         except Exception as e:
             print(f"Error saving report to temp table: {e}")
             return False
@@ -128,7 +133,7 @@ class PostgresRepository(IRepository):
             with self.get_connection() as conn:
                 table_name = self._get_temp_table_name(transaction_id)
                 cursor = conn.cursor()
-                
+
                 # Check if temp table exists
                 try:
                     cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
@@ -139,7 +144,7 @@ class PostgresRepository(IRepository):
                     return
 
                 cursor.execute("BEGIN")
-                
+
                 try:
                     if count == 0:
                         print("No data to commit")
@@ -147,31 +152,36 @@ class PostgresRepository(IRepository):
                         return
 
                     # Move data from temp table to reports table
-                    cursor.execute(f"""
+                    cursor.execute(
+                        f"""
                         INSERT INTO reports (specialization_id, skills_1, region_id, company_id, data, fetched_at)
                         SELECT specialization_id, skills_1, region_id, company_id, data, fetched_at
                         FROM {table_name}
-                    """)
+                    """
+                    )
 
                     # Log the operation
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         INSERT INTO report_log (report_date, report_type, total_variants, success_count, duration_seconds, status)
                         VALUES (%s, %s, %s, %s, %s, %s)
-                    """, (datetime.now(), 'batch_import', count, count, 0, 'success'))
+                    """,
+                        (datetime.now(), 'batch_import', count, count, 0, 'success'),
+                    )
 
                     # Drop temporary table
                     cursor.execute(f"DROP TABLE {table_name}")
-                    
+
                     conn.commit()
                     print(f"Successfully committed {count} reports from temporary storage")
-                    
+
                 except Exception as e:
                     conn.rollback()
                     print(f"Error committing transaction: {e}")
                     raise
                 finally:
                     cursor.close()
-                    
+
         except Exception as e:
             print(f"Critical error during commit: {e}")
             raise
@@ -182,7 +192,7 @@ class PostgresRepository(IRepository):
             with self.get_connection() as conn:
                 table_name = self._get_temp_table_name(transaction_id)
                 cursor = conn.cursor()
-                
+
                 # Check if temp table exists and drop it
                 try:
                     cursor.execute(f"DROP TABLE {table_name}")
@@ -190,9 +200,9 @@ class PostgresRepository(IRepository):
                     print(f"Rolled back transaction {transaction_id} (dropped temp table)")
                 except psycopg2.Error:
                     print(f"No temp table to rollback for transaction {transaction_id}")
-                    
+
                 cursor.close()
-                
+
         except Exception as e:
             print(f"Error during rollback: {e}")
 
@@ -202,7 +212,7 @@ class PostgresRepository(IRepository):
             with self.get_connection() as conn:
                 table_name = self._get_temp_table_name(transaction_id)
                 cursor = conn.cursor()
-                
+
                 try:
                     cursor.execute(f"SELECT 1 FROM {table_name} LIMIT 1")
                     cursor.close()
@@ -210,6 +220,6 @@ class PostgresRepository(IRepository):
                 except psycopg2.Error:
                     cursor.close()
                     return False
-                    
+
         except Exception:
             return False

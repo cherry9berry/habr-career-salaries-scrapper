@@ -60,24 +60,22 @@ class Settings:
                 port=int(os.environ.get("DATABASE_PORT", "5432")),
                 database=os.environ.get("DATABASE_NAME", "scraping_db"),
                 user=os.environ.get("DATABASE_USER", "scraper"),
-                password=os.environ.get("DATABASE_PASSWORD", "password")
+                password=os.environ.get("DATABASE_PASSWORD", "password"),
             )
-            
+
             api_settings = ApiSettings(
-                url=os.environ.get("API_URL", "https://career.habr.com/api/frontend_v1/salary_calculator/general_graph"),
+                url=os.environ.get(
+                    "API_URL", "https://career.habr.com/api/frontend_v1/salary_calculator/general_graph"
+                ),
                 delay_min=float(os.environ.get("API_DELAY_MIN", "1.5")),
                 delay_max=float(os.environ.get("API_DELAY_MAX", "2.5")),
-                retry_attempts=int(os.environ.get("API_RETRY_ATTEMPTS", "3"))
+                retry_attempts=int(os.environ.get("API_RETRY_ATTEMPTS", "3")),
             )
-            
+
             max_refs = int(os.environ.get("MAX_REFERENCES", "2000"))
-            
-            return cls(
-                database=db_settings,
-                api=api_settings,
-                max_references=max_refs
-            )
-            
+
+            return cls(database=db_settings, api=api_settings, max_references=max_refs)
+
         # Fall back to YAML file
         path = Path(yaml_path)
         if not path.exists():
