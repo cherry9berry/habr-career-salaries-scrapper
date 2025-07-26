@@ -1,20 +1,24 @@
-"""Application settings using Pydantic BaseSettings"""
+"""Application settings using dataclasses"""
 
 from pathlib import Path
 from typing import Any, Dict, Union, Optional
+from dataclasses import dataclass
 
 try:
-    from pydantic_settings import BaseSettings
+    import yaml
 except ImportError:
-    from pydantic import BaseSettings
-from pydantic import Field
-import yaml
-from dotenv import load_dotenv
+    yaml = None
+
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = lambda x: None
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-class DatabaseSettings(BaseSettings):
+@dataclass
+class DatabaseSettings:
     host: str = "localhost"
     port: int = 5432
     database: str = "scraping_db"
@@ -22,34 +26,32 @@ class DatabaseSettings(BaseSettings):
     password: str = "password"
 
 
-class ApiSettings(BaseSettings):
+@dataclass
+class ApiSettings:
     url: str
     delay_min: float = 1.5
     delay_max: float = 2.5
     retry_attempts: int = 3
 
 
-class Settings(BaseSettings):
+@dataclass
+class Settings:
     database: DatabaseSettings
     api: ApiSettings
     max_references: int = 2000
 
-    def to_scraping_config(self):
-        """Convert Settings to ScrapingConfig instance"""
-        from src.core import ScrapingConfig
-
-        return ScrapingConfig(
-            reference_types=["specializations", "skills", "regions", "companies"],
-            combinations=None,
-        )
-
     @classmethod
     def load(cls, yaml_path: Union[Path, str] = "config.yaml", env_file: str = ".env") -> "Settings":
-        load_dotenv(env_file)
+        if load_dotenv:
+            load_dotenv(env_file)
+
         path = Path(yaml_path)
 
         if not path.exists():
             raise FileNotFoundError(f"Configuration file not found: {yaml_path}")
+
+        if yaml is None:
+            raise ImportError("PyYAML is required to load configuration from YAML files")
 
         with open(path, 'r') as f:
             config_data = yaml.safe_load(f)
