@@ -1,5 +1,6 @@
 """Database layer implementation using PostgreSQL with temporary table storage"""
 
+import logging
 import psycopg2
 from psycopg2.extras import Json, execute_values
 from psycopg2.pool import SimpleConnectionPool
@@ -87,7 +88,6 @@ class PostgresRepository(IRepository):
                 cursor = conn.cursor()
 
                 # Check if temp table exists, create if not
-                # Use a more reliable way to check temp table existence
                 try:
                     cursor.execute(f"SELECT 1 FROM {table_name} LIMIT 1")
                     # Table exists
@@ -124,7 +124,7 @@ class PostgresRepository(IRepository):
                 return True
 
         except Exception as e:
-            print(f"Error saving report to temp table: {e}")
+            logging.error(f"Error saving report to temp table: {e}")
             return False
 
     def commit_transaction(self, transaction_id: str) -> None:
@@ -139,7 +139,7 @@ class PostgresRepository(IRepository):
                     cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
                     count = cursor.fetchone()[0]
                 except psycopg2.Error:
-                    print(f"No temporary table found for transaction {transaction_id}")
+                    logging.warning(f"No temporary table found for transaction {transaction_id}")
                     cursor.close()
                     return
 
@@ -147,7 +147,7 @@ class PostgresRepository(IRepository):
 
                 try:
                     if count == 0:
-                        print("No data to commit")
+                        logging.info("No data to commit")
                         cursor.close()
                         return
 
@@ -173,17 +173,17 @@ class PostgresRepository(IRepository):
                     cursor.execute(f"DROP TABLE {table_name}")
 
                     conn.commit()
-                    print(f"Successfully committed {count} reports from temporary storage")
+                    logging.info(f"Successfully committed {count} reports from temporary storage")
 
                 except Exception as e:
                     conn.rollback()
-                    print(f"Error committing transaction: {e}")
+                    logging.error(f"Error committing transaction: {e}")
                     raise
                 finally:
                     cursor.close()
 
         except Exception as e:
-            print(f"Critical error during commit: {e}")
+            logging.error(f"Critical error during commit: {e}")
             raise
 
     def rollback_transaction(self, transaction_id: str) -> None:
@@ -197,14 +197,14 @@ class PostgresRepository(IRepository):
                 try:
                     cursor.execute(f"DROP TABLE {table_name}")
                     conn.commit()
-                    print(f"Rolled back transaction {transaction_id} (dropped temp table)")
+                    logging.info(f"Rolled back transaction {transaction_id} (dropped temp table)")
                 except psycopg2.Error:
-                    print(f"No temp table to rollback for transaction {transaction_id}")
+                    logging.warning(f"No temp table to rollback for transaction {transaction_id}")
 
                 cursor.close()
 
         except Exception as e:
-            print(f"Error during rollback: {e}")
+            logging.error(f"Error during rollback: {e}")
 
     def transaction_exists(self, transaction_id: str) -> bool:
         """Check if transaction exists (temp table exists)"""
