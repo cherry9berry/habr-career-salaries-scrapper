@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from typing import Any, Dict, Union, Optional
+
 try:
     from pydantic_settings import BaseSettings
 except ImportError:
@@ -46,19 +47,19 @@ class Settings(BaseSettings):
     def load(cls, yaml_path: Union[Path, str] = "config.yaml", env_file: str = ".env") -> "Settings":
         load_dotenv(env_file)
         path = Path(yaml_path)
-        
+
         if not path.exists():
             raise FileNotFoundError(f"Configuration file not found: {yaml_path}")
-        
+
         with open(path, 'r') as f:
             config_data = yaml.safe_load(f)
-        
+
         # Convert nested dicts to settings objects
         db_data = config_data.get('database', {})
         api_data = config_data.get('api', {})
-        
+
         return cls(
             database=DatabaseSettings(**db_data),
             api=ApiSettings(**api_data),
-            max_references=config_data.get('max_references', 2000)
+            max_references=config_data.get('max_references', 2000),
         )
