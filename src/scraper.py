@@ -34,8 +34,8 @@ class HabrApiClient(IApiClient):
             api_params["spec_aliases[]"] = params['spec_alias']
         if 'skill_aliases' in params:
             api_params["skills[]"] = params['skill_aliases']
-        if 'region_aliases[]' in params:
-            api_params["region_aliases[]"] = params['region_aliases[]']
+        if 'region_alias' in params:
+            api_params["region_aliases[]"] = params['region_alias']
         if 'company_alias' in params:
             api_params["company_alias"] = params['company_alias']
 
@@ -181,7 +181,7 @@ class SalaryScraper(IScraper):
         param_mapping = {
             'specializations': ('spec_alias', ref.alias),
             'skills': ('skill_aliases', [ref.alias]),
-            'regions': ('region_aliases[]', ref.alias),
+            'regions': ('region_alias', ref.alias),
             'companies': ('company_alias', ref.alias),
         }
 
