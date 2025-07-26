@@ -19,9 +19,7 @@ from src.scraper import HabrApiClient, SalaryScraper
 from src.config_parser import CsvConfigParser, DefaultConfigParser
 
 app = FastAPI(
-    title="Salary Scraper API",
-    description="API for controlling Habr Career salary data scraping",
-    version="1.0.0"
+    title="Salary Scraper API", description="API for controlling Habr Career salary data scraping", version="1.0.0"
 )
 
 # Global variables for application state
@@ -53,42 +51,43 @@ async def run_scraper_task(config_parser, job_id: str):
     """Background task to run the scraper"""
     global current_job_id
     current_job_id = job_id
-    
+
     try:
         # Load settings
         settings = Settings.load("config.yaml")
-        
+
         # Choose repository implementation based on configuration
         if USE_SQLITE_TEMP:
             print(f"🗄️  Using SQLite temporary storage for job {job_id}")
             from src.sqlite_storage import PostgresRepositoryWithSQLite
+
             repository = PostgresRepositoryWithSQLite(asdict(settings.database))
         else:
             print(f"🗄️  Using PostgreSQL temp tables for job {job_id}")
             repository = PostgresRepository(asdict(settings.database))
-        
+
         # Create API client and scraper
         api_client = HabrApiClient(
             url=settings.api.url,
             delay_min=settings.api.delay_min,
             delay_max=settings.api.delay_max,
-            retry_attempts=settings.api.retry_attempts
+            retry_attempts=settings.api.retry_attempts,
         )
         scraper = SalaryScraper(repository, api_client)
-        
+
         # Parse configuration
         config = config_parser.parse()
-        
+
         print(f"Starting scraper job {job_id} at {datetime.now()}")
-        
+
         # Run scraping
         success = scraper.scrape(config)
-        
+
         if success:
             print(f"Scraper job {job_id} completed successfully")
         else:
             print(f"Scraper job {job_id} failed")
-            
+
     except Exception as e:
         print(f"Scraper job {job_id} error: {str(e)}")
     finally:
@@ -101,11 +100,7 @@ async def run_scraper_task(config_parser, job_id: str):
 async def root():
     """Root endpoint"""
     storage_type = "SQLite" if USE_SQLITE_TEMP else "PostgreSQL temp tables"
-    return {
-        "message": "Salary Scraper API", 
-        "version": "1.0.0",
-        "temp_storage": storage_type
-    }
+    return {"message": "Salary Scraper API", "version": "1.0.0", "temp_storage": storage_type}
 
 
 @app.get("/health")
@@ -115,29 +110,24 @@ async def health_check():
         # Test database connection
         settings = Settings.load("config.yaml")
         repository = PostgresRepository(asdict(settings.database))
-        
+
         # Simple connection test
         with repository.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT 1")
             cursor.close()
-        
+
         storage_type = "SQLite" if USE_SQLITE_TEMP else "PostgreSQL temp tables"
-        
+
         return {
             "status": "healthy",
             "database": "connected",
             "temp_storage": storage_type,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
     except Exception as e:
         return JSONResponse(
-            status_code=503,
-            content={
-                "status": "unhealthy", 
-                "error": str(e),
-                "timestamp": datetime.now().isoformat()
-            }
+            status_code=503, content={"status": "unhealthy", "error": str(e), "timestamp": datetime.now().isoformat()}
         )
 
 
@@ -145,106 +135,89 @@ async def health_check():
 async def get_status():
     """Get current scraping status"""
     storage_type = "SQLite" if USE_SQLITE_TEMP else "PostgreSQL temp tables"
-    
+
     if is_scraping_running():
         return {
             "status": "running",
             "job_id": current_job_id,
             "temp_storage": storage_type,
-            "message": "Scraping in progress"
+            "message": "Scraping in progress",
         }
     else:
-        return {
-            "status": "idle",
-            "temp_storage": storage_type,
-            "message": "No scraping in progress"
-        }
+        return {"status": "idle", "temp_storage": storage_type, "message": "No scraping in progress"}
 
 
 @app.post("/api/scrape")
 async def start_full_scraping(background_tasks: BackgroundTasks):
     """Start full scraping (all reference types)"""
     if is_scraping_running():
-        raise HTTPException(
-            status_code=409, 
-            detail="Scraping already in progress"
-        )
-    
+        raise HTTPException(status_code=409, detail="Scraping already in progress")
+
     job_id = str(uuid.uuid4())
     create_lock(job_id)
-    
+
     # Create default config parser
     config_parser = DefaultConfigParser()
-    
+
     # Start background task
     background_tasks.add_task(run_scraper_task, config_parser, job_id)
-    
+
     storage_type = "SQLite" if USE_SQLITE_TEMP else "PostgreSQL temp tables"
-    
+
     return {
         "status": "started",
         "job_id": job_id,
         "temp_storage": storage_type,
         "message": "Full scraping initiated",
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
     }
 
 
 @app.post("/api/scrape/upload")
 async def start_custom_scraping(
-    background_tasks: BackgroundTasks,
-    config: UploadFile = File(..., description="CSV configuration file")
+    background_tasks: BackgroundTasks, config: UploadFile = File(..., description="CSV configuration file")
 ):
     """Start scraping with uploaded CSV configuration"""
     if is_scraping_running():
-        raise HTTPException(
-            status_code=409,
-            detail="Scraping already in progress"
-        )
-    
+        raise HTTPException(status_code=409, detail="Scraping already in progress")
+
     # Validate file type
     if not config.filename.endswith('.csv'):
-        raise HTTPException(
-            status_code=400,
-            detail="File must be a CSV file"
-        )
-    
+        raise HTTPException(status_code=400, detail="File must be a CSV file")
+
     job_id = str(uuid.uuid4())
     create_lock(job_id)
-    
+
     try:
         # Save uploaded file to temporary location
         with tempfile.NamedTemporaryFile(mode='wb', suffix='.csv', delete=False) as temp_file:
             content = await config.read()
             temp_file.write(content)
             temp_file_path = temp_file.name
-        
+
         # Create CSV config parser
         config_parser = CsvConfigParser()
         config_parser.csv_path = temp_file_path  # Set the path
-        
+
         # Start background task
         background_tasks.add_task(run_scraper_task, config_parser, job_id)
-        
+
         # Schedule cleanup of temp file
         background_tasks.add_task(cleanup_temp_file, temp_file_path)
-        
+
         storage_type = "SQLite" if USE_SQLITE_TEMP else "PostgreSQL temp tables"
-        
+
         return {
             "status": "started",
             "job_id": job_id,
             "temp_storage": storage_type,
             "message": f"Custom scraping initiated with {config.filename}",
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
-        
+
     except Exception as e:
         remove_lock()  # Remove lock on error
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to process configuration file: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to process configuration file: {str(e)}")
 
 
 async def cleanup_temp_file(file_path: str):
@@ -258,4 +231,4 @@ async def cleanup_temp_file(file_path: str):
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+    uvicorn.run(app, host="0.0.0.0", port=8000)
