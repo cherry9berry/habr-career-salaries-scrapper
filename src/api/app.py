@@ -4,6 +4,9 @@ import os
 import asyncio
 import tempfile
 import uuid
+import requests
+import time
+import threading
 from pathlib import Path
 from typing import Optional
 from datetime import datetime
@@ -27,12 +30,51 @@ app = FastAPI(
 # Global variables for application state
 LOCK_FILE = Path("/tmp/scraper.lock")
 current_job_id: Optional[str] = None
+keep_alive_active = False
 
 # Configuration: use SQLite for temporary storage (set via env var)
 USE_SQLITE_TEMP = os.environ.get("USE_SQLITE_TEMP", "true").lower() == "true"
 
 # Thread pool for blocking operations
 executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+
+
+def keep_alive_ping():
+    """Send periodic requests to keep Render.com service alive"""
+    global keep_alive_active
+    
+    # Get service URL from environment or use localhost
+    service_url = os.environ.get("RENDER_EXTERNAL_URL", "http://localhost:8000")
+    ping_url = f"{service_url}/health"
+    
+    while keep_alive_active:
+        try:
+            # Wait 10 minutes before next ping
+            time.sleep(600)  # 10 minutes
+            
+            if keep_alive_active:  # Check again after sleep
+                requests.get(ping_url, timeout=30)
+                print(f"[KEEP-ALIVE] Pinged {ping_url} to prevent sleep")
+        except Exception as e:
+            print(f"[KEEP-ALIVE] Ping failed: {e}")
+
+
+def start_keep_alive():
+    """Start keep-alive pinger in background thread"""
+    global keep_alive_active
+    if not keep_alive_active:
+        keep_alive_active = True
+        thread = threading.Thread(target=keep_alive_ping, daemon=True)
+        thread.start()
+        print("[KEEP-ALIVE] Started background pinger")
+
+
+def stop_keep_alive():
+    """Stop keep-alive pinger"""
+    global keep_alive_active
+    if keep_alive_active:
+        keep_alive_active = False
+        print("[KEEP-ALIVE] Stopped background pinger")
 
 
 def is_scraping_running() -> bool:
@@ -60,6 +102,9 @@ async def run_scraper_task(config_parser, job_id: str):
     print(f"[{job_id}] Received scraping task at {datetime.now()}")
     print(f"[{job_id}] Storage type: {'SQLite' if USE_SQLITE_TEMP else 'PostgreSQL temp tables'}")
 
+    # Start keep-alive to prevent Render.com sleep during long-running tasks
+    start_keep_alive()
+
     try:
         # Run blocking scraper in thread pool
         loop = asyncio.get_event_loop()
@@ -73,6 +118,7 @@ async def run_scraper_task(config_parser, job_id: str):
     except Exception as e:
         print(f"[{job_id}] Scraping error: {str(e)}")
     finally:
+        stop_keep_alive()  # Stop keep-alive when task completes
         remove_lock()
         current_job_id = None
 

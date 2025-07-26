@@ -2,6 +2,7 @@
 
 import aiohttp
 import asyncio
+import logging
 import random
 import urllib.parse
 from typing import Dict, Any, Optional
@@ -44,11 +45,11 @@ class AsyncHabrApiClient:
                         resp.raise_for_status()
                         data = await resp.json()
                         if not data.get("groups"):
-                            print("Warning: Empty response", api_params)
+                            logging.warning(f"Empty async response: {api_params}")
                             return None
                         return data
                 except Exception as e:
-                    print(f"Async API error (attempt {attempt+1}/{self.retry_attempts}): {e}")
+                    logging.error(f"Async API error (attempt {attempt+1}/{self.retry_attempts}): {e}")
                     if attempt < self.retry_attempts - 1:
                         await asyncio.sleep(self.delay_max)
         return None

@@ -3,6 +3,7 @@ Configuration parser implementation
 """
 
 import csv
+import logging
 from typing import List, Set, Tuple, Optional
 from pathlib import Path
 
@@ -35,8 +36,8 @@ class CsvConfigParser(IConfigParser):
             # Validate headers
             invalid_headers = headers - self.VALID_HEADERS
             if invalid_headers:
-                print(f"Invalid headers found: {invalid_headers}")
-                print(f"   Valid headers are: {self.VALID_HEADERS}")
+                logging.error(f"Invalid headers found: {invalid_headers}")
+                logging.error(f"   Valid headers are: {self.VALID_HEADERS}")
                 raise ValueError(f"Invalid headers: {invalid_headers}")
 
             if not headers:

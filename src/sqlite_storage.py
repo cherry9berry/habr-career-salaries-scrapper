@@ -2,6 +2,7 @@
 Alternative implementation of temporary storage using SQLite
 """
 
+import logging
 import sqlite3
 import tempfile
 import os
@@ -111,7 +112,7 @@ class SQLiteTemporaryStorage:
             return True
 
         except Exception as e:
-            print(f"Error saving to SQLite temp storage: {e}")
+            logging.error(f"Error saving to SQLite temp storage: {e}")
             return False
 
     def get_all_reports(self) -> List[tuple]:
@@ -144,9 +145,9 @@ class SQLiteTemporaryStorage:
         if os.path.exists(self.db_path):
             try:
                 os.remove(self.db_path)
-                print(f"Cleaned up SQLite temp file: {self.db_path}")
+                logging.info(f"Cleaned up SQLite temp file: {self.db_path}")
             except Exception as e:
-                print(f"Warning: Could not remove temp file {self.db_path}: {e}")
+                logging.warning(f"Could not remove temp file {self.db_path}: {e}")
 
 
 class PostgresRepositoryWithSQLite(IRepository):
@@ -173,7 +174,7 @@ class PostgresRepositoryWithSQLite(IRepository):
     def commit_transaction(self, transaction_id: str) -> None:
         """Transfer data from SQLite to PostgreSQL"""
         if transaction_id not in self.temp_storages:
-            print(f"No SQLite storage found for transaction {transaction_id}")
+            logging.warning(f"No SQLite storage found for transaction {transaction_id}")
             return
 
         temp_storage = self.temp_storages[transaction_id]
@@ -181,12 +182,12 @@ class PostgresRepositoryWithSQLite(IRepository):
         count = len(reports)
 
         if count == 0:
-            print("No data to commit")
+            logging.info("No data to commit")
             temp_storage.cleanup()
             del self.temp_storages[transaction_id]
             return
 
-        print(f"Committing {count} reports from SQLite to PostgreSQL...")
+        logging.info(f"Committing {count} reports from SQLite to PostgreSQL...")
 
         # Use PostgreSQL connection for commit
         with self.postgres_repo.get_connection() as conn:
@@ -230,11 +231,11 @@ class PostgresRepositoryWithSQLite(IRepository):
                 )
 
                 conn.commit()
-                print(f"Successfully committed {count} reports from SQLite to PostgreSQL")
+                logging.info(f"Successfully committed {count} reports from SQLite to PostgreSQL")
 
             except Exception as e:
                 conn.rollback()
-                print(f"Error committing from SQLite: {e}")
+                logging.error(f"Error committing from SQLite: {e}")
                 raise
             finally:
                 cursor.close()
@@ -249,9 +250,9 @@ class PostgresRepositoryWithSQLite(IRepository):
             temp_storage = self.temp_storages[transaction_id]
             temp_storage.cleanup()
             del self.temp_storages[transaction_id]
-            print(f"Rolled back SQLite transaction {transaction_id}")
+            logging.info(f"Rolled back SQLite transaction {transaction_id}")
         else:
-            print(f"No SQLite storage to rollback for transaction {transaction_id}")
+            logging.warning(f"No SQLite storage to rollback for transaction {transaction_id}")
 
     def transaction_exists(self, transaction_id: str) -> bool:
         """Check if transaction exists"""

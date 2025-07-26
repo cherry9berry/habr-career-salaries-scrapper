@@ -2,6 +2,7 @@
 API client and scraper implementation
 """
 
+import logging
 import requests
 import time
 import random
@@ -49,7 +50,7 @@ class HabrApiClient(IApiClient):
 
                 # Validate response
                 if not data.get('groups') or len(data['groups']) == 0:
-                    print(f"Warning: Empty response for {full_url}")
+                    logging.warning(f"Empty response for {full_url}")
                     return None
 
                 # Add delay between requests
@@ -57,7 +58,7 @@ class HabrApiClient(IApiClient):
                 return data
 
             except Exception as e:
-                print(f"API error (attempt {attempt + 1}/{self.retry_attempts}): {e}")
+                logging.error(f"API error (attempt {attempt + 1}/{self.retry_attempts}): {e}")
                 if attempt < self.retry_attempts - 1:
                     time.sleep(self.delay_max)
 
@@ -80,14 +81,14 @@ class SalaryScraper(IScraper):
         try:
             if config.combinations:
                 # Scrape specific combinations
-                print(f"Scraping combinations: {config.combinations}")
+                logging.info(f"Scraping combinations: {config.combinations}")
                 for combination in config.combinations:
                     count, success = self._scrape_combination(combination, transaction_id)
                     total_count += count
                     success_count += success
             else:
                 # Scrape individual reference types
-                print(f"Scraping individual references: {config.reference_types}")
+                logging.info(f"Scraping individual references: {config.reference_types}")
                 for ref_type in config.reference_types:
                     count, success = self._scrape_reference_type(ref_type, transaction_id)
                     total_count += count
@@ -95,16 +96,16 @@ class SalaryScraper(IScraper):
 
             # Commit if any work was done
             if total_count == 0:
-                print("No data to scrape")
+                logging.info("No data to scrape")
                 return True
             else:
                 self.repository.commit_transaction(transaction_id)
-                print(f"Scraping completed: {success_count}/{total_count} successful")
+                logging.info(f"Scraping completed: {success_count}/{total_count} successful")
                 return True
 
         except Exception as e:
             self.repository.rollback_transaction(transaction_id)
-            print(f"Critical error during scraping: {e}")
+            logging.error(f"Critical error during scraping: {e}")
             return False
 
     def _scrape_reference_type(self, ref_type: str, transaction_id: str) -> tuple[int, int]:
@@ -113,7 +114,7 @@ class SalaryScraper(IScraper):
         total = len(references)
         success = 0
 
-        print(f"Processing {total} {ref_type}")
+        logging.info(f"Processing {total} {ref_type}")
 
         for i, ref in enumerate(references):
             params = self._build_params(ref_type, ref)
@@ -125,15 +126,15 @@ class SalaryScraper(IScraper):
                 success += 1
 
             if (i + 1) % 10 == 0:
-                print(f"  Progress: {i + 1}/{total} ({success} successful)")
+                logging.info(f"  Progress: {i + 1}/{total} ({success} successful)")
 
         return total, success
 
     def _scrape_combination(self, combination: tuple, transaction_id: str) -> tuple[int, int]:
         """Scrape specific combination from CSV row"""
-        print(f"Processing combination: {combination}")
+        logging.info(f"Processing combination: {combination}")
 
-        # New format: (('skills', 'Python'), ('regions', 'Moscow'))
+        # Parse combination parameters
         combined_params = {}
         ref_data = []
 
@@ -150,7 +151,7 @@ class SalaryScraper(IScraper):
                         break
 
                 if not found_ref:
-                    print(f"Reference not found: {ref_type}={value}")
+                    logging.warning(f"Reference not found: {ref_type}={value}")
                     return 0, 0
 
                 # Build API parameters
@@ -159,7 +160,7 @@ class SalaryScraper(IScraper):
                 ref_data.append((ref_type, found_ref))
 
             # Call API once with combined parameters
-            print(f"API call: {', '.join(f'{rt}={ref.title}' for rt, ref in ref_data)}")
+            logging.info(f"API call: {', '.join(f'{rt}={ref.title}' for rt, ref in ref_data)}")
             data = self.api_client.fetch_salary_data(**combined_params)
 
             if data:
@@ -173,7 +174,7 @@ class SalaryScraper(IScraper):
                 return 1, 0  # 1 combination processed, 0 successful
 
         except Exception as e:
-            print(f"Error processing combination: {e}")
+            logging.error(f"Error processing combination: {e}")
             return 1, 0
 
     def _build_params(self, ref_type: str, ref: Reference) -> Dict[str, Any]:

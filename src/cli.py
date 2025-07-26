@@ -8,7 +8,7 @@ from src.scraper import HabrApiClient, SalaryScraper
 from src.async_api import AsyncHabrApiClient
 from src.async_scraper import AsyncSalaryScraper
 from scripts.update_references import update_reference
-from scripts.clean_db import drop_test_table
+
 
 app = typer.Typer(help="Salary scraper CLI")
 
@@ -39,11 +39,7 @@ def update(table: str, file: Path):
     update_reference(table, str(file))
 
 
-@app.command()
-def clean():
-    """Drop test_table from DB"""
-    repo_cfg = _load_repo().config
-    drop_test_table(repo_cfg)
+
 
 
 if __name__ == "__main__":
