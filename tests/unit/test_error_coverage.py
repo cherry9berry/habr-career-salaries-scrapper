@@ -214,7 +214,7 @@ class TestEdgeCases(unittest.TestCase):
         try:
             config = parser.parse(temp_path)
             self.assertEqual(config.reference_types, ["skills"])
-            self.assertIsNone(config.combinations)
+            self.assertIsNotNone(config.combinations)
         finally:
             os.unlink(temp_path)
 
