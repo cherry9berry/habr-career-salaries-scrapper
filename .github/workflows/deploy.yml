@@ -1,0 +1,27 @@
+name: Deploy to Render
+
+on:
+  push:
+    branches: [ main ]
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    
+    steps:
+    - name: Deploy to Render
+      uses: johnbeynon/render-deploy-action@v0.0.8
+      with:
+        service-id: ${{ secrets.RENDER_SERVICE_ID }}
+        api-key: ${{ secrets.RENDER_API_KEY }}
+        
+    - name: Notify deployment status
+      run: |
+        echo "🚀 Deployment triggered to Render.com"
+        echo "📊 Service URL: https://salary-scraper-${{ secrets.RENDER_SERVICE_ID }}.onrender.com" 
