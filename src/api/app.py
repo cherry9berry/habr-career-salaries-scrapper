@@ -10,7 +10,7 @@ from datetime import datetime
 from dataclasses import asdict
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 import uvicorn
 
 from src.settings import Settings
@@ -98,9 +98,41 @@ async def run_scraper_task(config_parser, job_id: str):
 
 @app.get("/")
 async def root():
-    """Root endpoint"""
+    """Root endpoint with API documentation"""
     storage_type = "SQLite" if USE_SQLITE_TEMP else "PostgreSQL temp tables"
-    return {"message": "Salary Scraper API", "version": "1.0.0", "temp_storage": storage_type}
+
+    return {
+        "message": "Salary Scraper API",
+        "version": "1.0.0",
+        "temp_storage": storage_type,
+        "documentation": "https://habr-career-salaries-scrapper.onrender.com/docs",
+        "redoc": "https://habr-career-salaries-scrapper.onrender.com/redoc",
+        "endpoints": {
+            "GET /": "This endpoint - API information",
+            "GET /health": "Health check and database status",
+            "GET /api/status": "Current scraping status",
+            "POST /api/scrape": "Start default scraping (all references)",
+            "POST /api/scrape/upload": "Start custom scraping with CSV config file upload",
+        },
+        "examples": {
+            "health_check": "curl https://habr-career-salaries-scrapper.onrender.com/health",
+            "check_status": "curl https://habr-career-salaries-scrapper.onrender.com/api/status",
+            "start_default_scraping": "curl -X POST https://habr-career-salaries-scrapper.onrender.com/api/scrape",
+            "upload_config": "curl -X POST -F 'config=@your_config.csv' https://habr-career-salaries-scrapper.onrender.com/api/scrape/upload",
+        },
+    }
+
+
+@app.get("/api")
+async def api_redirect():
+    """Redirect to API documentation"""
+    return RedirectResponse(url="/docs")
+
+
+@app.get("/swagger")
+async def swagger_redirect():
+    """Alternative redirect to API documentation"""
+    return RedirectResponse(url="/docs")
 
 
 @app.get("/health")
