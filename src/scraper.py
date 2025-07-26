@@ -93,18 +93,14 @@ class SalaryScraper(IScraper):
                     total_count += count
                     success_count += success
 
-            # Commit if success rate > 60% or no work was done
-            if total_count == 0 or (total_count > 0 and success_count / total_count >= 0.6):
-                self.repository.commit_transaction(transaction_id)
-                if total_count > 0:
-                    print(f"Scraping completed: {success_count}/{total_count} successful")
-                else:
-                    print("No data to scrape")
+            # Commit if any work was done
+            if total_count == 0:
+                print("No data to scrape")
                 return True
             else:
-                self.repository.rollback_transaction(transaction_id)
-                print(f"Scraping failed: only {success_count}/{total_count} successful")
-                return False
+                self.repository.commit_transaction(transaction_id)
+                print(f"Scraping completed: {success_count}/{total_count} successful")
+                return True
 
         except Exception as e:
             self.repository.rollback_transaction(transaction_id)

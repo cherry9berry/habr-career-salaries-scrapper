@@ -130,12 +130,12 @@ class TestErrorHandling(unittest.TestCase):
         config = ScrapingConfig(reference_types=[], combinations=None)
         result = scraper.scrape(config)
 
-        # With our fix, empty config should succeed
+        # With our fix, empty config should succeed without commit
         self.assertTrue(result)
-        mock_repo.commit_transaction.assert_called_once()
+        mock_repo.commit_transaction.assert_not_called()
 
     def test_scraper_all_api_calls_fail(self):
-        """Test scraper when all API calls fail"""
+        """Test scraper when all API calls fail - should still commit"""
         mock_repo = Mock()
         mock_api = Mock()
         mock_repo.get_references.return_value = [Reference(1, "Python", "python"), Reference(2, "Java", "java")]
@@ -146,8 +146,8 @@ class TestErrorHandling(unittest.TestCase):
 
         result = scraper.scrape(config)
 
-        self.assertFalse(result)
-        mock_repo.rollback_transaction.assert_called_once()
+        self.assertTrue(result)
+        mock_repo.commit_transaction.assert_called_once()
 
     def test_file_permission_error(self):
         """Test handling file permission errors"""

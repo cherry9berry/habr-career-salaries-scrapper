@@ -125,9 +125,9 @@ class TestSalaryScraper(unittest.TestCase):
         self.mock_repo.commit_transaction.assert_called_once()
         self.mock_repo.rollback_transaction.assert_not_called()
 
-    def test_scrape_failure_low_success_rate(self):
-        """Test scraping failure when success rate < 60%"""
-        # Setup mocks - 1 success out of 3 (33% < 60%)
+    def test_scrape_with_partial_success(self):
+        """Test scraping with partial success - should still commit"""
+        # Setup mocks - 1 success out of 3 (33% success, but still valid)
         self.mock_repo.get_references.return_value = [
             Reference(1, "Python", "python"),
             Reference(2, "Java", "java"),
@@ -143,9 +143,9 @@ class TestSalaryScraper(unittest.TestCase):
 
         result = self.scraper.scrape(config)
 
-        self.assertFalse(result)
-        self.mock_repo.rollback_transaction.assert_called_once()
-        self.mock_repo.commit_transaction.assert_not_called()
+        self.assertTrue(result)
+        self.mock_repo.commit_transaction.assert_called_once()
+        self.mock_repo.rollback_transaction.assert_not_called()
 
     def test_scrape_multiple_reference_types(self):
         """Test scraping multiple reference types"""
@@ -219,8 +219,8 @@ class TestSalaryScraper(unittest.TestCase):
         self.scraper.scrape(config)
 
         # Verify transaction methods were called with generated ID
-        # Since there are no references, it should still commit (0/0 success)
-        self.mock_repo.commit_transaction.assert_called_with("test-uuid-123")
+        # Since there are no references, should not commit (no data to process)
+        self.mock_repo.commit_transaction.assert_not_called()
 
     def test_progress_reporting(self):
         """Test progress reporting during scraping"""

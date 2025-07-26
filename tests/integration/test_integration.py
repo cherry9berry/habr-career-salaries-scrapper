@@ -218,7 +218,7 @@ class TestErrorRecovery(unittest.TestCase):
         config = ScrapingConfig(reference_types=["skills"], combinations=None)
         result = scraper.scrape(config)
 
-        # Should succeed because 66% > 60%
+        # Should succeed because there are successful results
         self.assertTrue(result)
         mock_conn.commit.assert_called()
         mock_execute_values.assert_called()
