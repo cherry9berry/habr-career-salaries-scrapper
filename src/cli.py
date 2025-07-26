@@ -36,8 +36,7 @@ def scrape(async_mode: bool = typer.Option(False, "--async", help="Use async scr
 @app.command()
 def update(table: str, file: Path):
     """Update reference table from Excel"""
-    repo = _load_repo()
-    update_reference(table, str(file), repo.config)
+    update_reference(table, str(file))
 
 
 @app.command()
