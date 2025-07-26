@@ -32,14 +32,4 @@ jobs:
       - name: Upload coverage
         uses: codecov/codecov-action@v3
         with:
-          files: coverage.xml
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    steps:
-      - name: Deploy to Render
-        run: |
-          echo "🚀 Triggering Render.com deployment..."
-          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}" 
+          files: coverage.xml 
