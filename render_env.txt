@@ -15,4 +15,4 @@ API_DELAY_MAX=2.5
 API_RETRY_ATTEMPTS=3
 
 # Временное хранение: false = PostgreSQL temp tables, true = SQLite files
-USE_SQLITE_TEMP=false 
+USE_SQLITE_TEMP=true 
