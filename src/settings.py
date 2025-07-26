@@ -12,7 +12,11 @@ except ImportError:
 try:
     from dotenv import load_dotenv
 except ImportError:
-    load_dotenv = lambda x: None
+
+    def load_dotenv(env_file):
+        """Dummy function when dotenv is not available"""
+        pass
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -53,15 +57,15 @@ class Settings:
         if yaml is None:
             raise ImportError("PyYAML is required to load configuration from YAML files")
 
-        with open(path, 'r') as f:
+        with open(path, "r") as f:
             config_data = yaml.safe_load(f)
 
         # Convert nested dicts to settings objects
-        db_data = config_data.get('database', {})
-        api_data = config_data.get('api', {})
+        db_data = config_data.get("database", {})
+        api_data = config_data.get("api", {})
 
         return cls(
             database=DatabaseSettings(**db_data),
             api=ApiSettings(**api_data),
-            max_references=config_data.get('max_references', 2000),
+            max_references=config_data.get("max_references", 2000),
         )
