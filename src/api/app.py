@@ -253,7 +253,7 @@ async def cleanup_temp_file(file_path: str):
     try:
         if os.path.exists(file_path):
             os.remove(file_path)
-    except:
+    except OSError:
         pass  # Ignore cleanup errors
 
 
