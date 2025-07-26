@@ -152,9 +152,7 @@ tmp/
 !config.json
 !requirements.txt
 
-# Temporary files
-test_*.py
-*_test.py
+# Temporary junk files
 *.tmp
 *.temp
 *.bak

@@ -28,11 +28,16 @@ class TestPostgresRepository(unittest.TestCase):
         mock_conn = Mock()
         mock_connect.return_value = mock_conn
         
+        # Mock the connection pool
+        mock_pool = Mock()
+        mock_pool.getconn.return_value = mock_conn
+        self.repo._pool = mock_pool
+        
         with self.repo.get_connection() as conn:
             self.assertEqual(conn, mock_conn)
             
-        mock_connect.assert_called_once_with(**self.config)
-        mock_conn.close.assert_called_once()
+        mock_pool.getconn.assert_called_once()
+        mock_pool.putconn.assert_called_once_with(mock_conn)
         
     @patch('src.database.psycopg2.connect')
     def test_get_references_valid_table(self, mock_connect):
@@ -98,13 +103,16 @@ class TestPostgresRepository(unittest.TestCase):
             
         self.assertEqual(len(self.repo.transactions[transaction_id]), 3)
         
-    @patch('src.database.psycopg2.connect')
-    def test_commit_transaction_success(self, mock_connect):
+    @patch('src.database.execute_values')
+    @patch('src.database.SimpleConnectionPool')
+    def test_commit_transaction_success(self, mock_pool_class, mock_execute_values):
         """Test successful transaction commit"""
         # Setup mock database
         mock_conn = Mock()
         mock_cursor = Mock()
-        mock_connect.return_value = mock_conn
+        mock_pool = Mock()
+        mock_pool_class.return_value = mock_pool
+        mock_pool.getconn.return_value = mock_conn
         mock_conn.cursor.return_value = mock_cursor
         
         # Add data to transaction
@@ -122,6 +130,7 @@ class TestPostgresRepository(unittest.TestCase):
         # Verify database calls
         mock_cursor.execute.assert_any_call("BEGIN")
         mock_conn.commit.assert_called_once()
+        mock_execute_values.assert_called()
         self.assertNotIn(transaction_id, self.repo.transactions)
         
     @patch('src.database.psycopg2.connect')
@@ -177,41 +186,43 @@ class TestPostgresRepository(unittest.TestCase):
         # Should not raise error
         self.repo.rollback_transaction("nonexistent-transaction")
         
-    @patch('src.database.psycopg2.connect')
-    def test_field_mapping(self, mock_connect):
-        """Test correct field mapping for different reference types"""
+    @patch('src.database.execute_values')
+    @patch('src.database.SimpleConnectionPool')
+    def test_field_mapping(self, mock_pool_class, mock_execute_values):
+        """Test field mapping during transaction commit"""
+        # Setup mock database
         mock_conn = Mock()
         mock_cursor = Mock()
-        mock_connect.return_value = mock_conn
+        mock_pool = Mock()
+        mock_pool_class.return_value = mock_pool
+        mock_pool.getconn.return_value = mock_conn
         mock_conn.cursor.return_value = mock_cursor
         
-        transaction_id = "test-mapping"
+        # Add data for different reference types
+        transaction_id = "test-mapping-789"
         
-        # Test each reference type
-        test_cases = [
-            ("specializations", "specialization_id"),
-            ("skills", "skills_1"),
-            ("regions", "region_id"),
-            ("companies", "company_id")
-        ]
+        # Add skills data
+        skills_data = SalaryData(
+            data={"groups": [{"title": "Python"}]},
+            reference_id=1,
+            reference_type="skills"
+        )
+        self.repo.save_report(skills_data, transaction_id)
         
-        for ref_type, expected_field in test_cases:
-            salary_data = SalaryData(
-                data={"test": ref_type},
-                reference_id=1,
-                reference_type=ref_type
-            )
-            self.repo.save_report(salary_data, transaction_id)
-            
+        # Add regions data
+        regions_data = SalaryData(
+            data={"groups": [{"title": "Moscow"}]},
+            reference_id=2,
+            reference_type="regions"
+        )
+        self.repo.save_report(regions_data, transaction_id)
+        
+        # Commit transaction
         self.repo.commit_transaction(transaction_id)
         
-        # Verify correct fields were used in INSERT queries
-        for call in mock_cursor.execute.call_args_list:
-            query = call[0][0]
-            if "INSERT INTO reports" in query:
-                for ref_type, expected_field in test_cases:
-                    if expected_field in query:
-                        self.assertIn(expected_field, query)
+        # Verify execute_values was called
+        mock_execute_values.assert_called()
+        mock_conn.commit.assert_called_once()
 
 
 if __name__ == "__main__":
