@@ -3,7 +3,7 @@ Configuration parser implementation
 """
 
 import csv
-from typing import List, Set, Tuple
+from typing import List, Set, Tuple, Optional
 from pathlib import Path
 
 from src.core import IConfigParser, ScrapingConfig
@@ -14,12 +14,21 @@ class CsvConfigParser(IConfigParser):
 
     VALID_HEADERS = {'specializations', 'skills', 'regions', 'companies'}
 
-    def parse(self, source: str) -> ScrapingConfig:
-        """Parse CSV configuration file"""
-        if not Path(source).exists():
-            raise FileNotFoundError(f"Configuration file not found: {source}")
+    def __init__(self, csv_path: Optional[str] = None):
+        """Initialize with optional CSV path"""
+        self.csv_path = csv_path
 
-        with open(source, 'r', encoding='utf-8') as f:
+    def parse(self, source: Optional[str] = None) -> ScrapingConfig:
+        """Parse CSV configuration file"""
+        # Use provided source or stored csv_path
+        file_path = source or self.csv_path
+        if not file_path:
+            raise ValueError("No CSV file path provided")
+            
+        if not Path(file_path).exists():
+            raise FileNotFoundError(f"Configuration file not found: {file_path}")
+
+        with open(file_path, 'r', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             headers = set(reader.fieldnames or [])
 
@@ -30,29 +39,34 @@ class CsvConfigParser(IConfigParser):
                 print(f"   Valid headers are: {self.VALID_HEADERS}")
                 raise ValueError(f"Invalid headers: {invalid_headers}")
 
-            valid_headers = headers & self.VALID_HEADERS
+            if not headers:
+                raise ValueError("Empty CSV file or no headers found")
 
-            if not valid_headers:
-                raise ValueError("No valid headers found in CSV file")
+            # Read all combinations
+            combinations = []
+            for row in reader:
+                # Skip empty rows
+                if not any(row.values()):
+                    continue
+                combinations.append(tuple(sorted(row.keys())))
 
-            # Determine if we need combinations
-            if len(valid_headers) > 1:
-                # For now, create pairs of headers for combinations
-                combinations: List[Tuple[str, ...]] = []
-                headers_list = list(valid_headers)
-                for i in range(len(headers_list)):
-                    for j in range(i + 1, len(headers_list)):
-                        combinations.append((headers_list[i], headers_list[j]))
+            # Get unique combinations
+            unique_combinations = list(set(combinations))
+            if not unique_combinations:
+                raise ValueError("No valid data rows found in CSV file")
 
-                return ScrapingConfig(reference_types=list(valid_headers), combinations=combinations)
-            else:
-                # Single header - no combinations needed
-                return ScrapingConfig(reference_types=list(valid_headers), combinations=None)
+        return ScrapingConfig(
+            reference_types=list(headers),
+            combinations=unique_combinations
+        )
 
 
 class DefaultConfigParser(IConfigParser):
-    """Default configuration parser - uses all reference types"""
+    """Default configuration parser for full scraping"""
 
-    def parse(self, source: str = "") -> ScrapingConfig:
-        """Return default configuration"""
-        return ScrapingConfig(reference_types=['specializations', 'skills', 'regions', 'companies'], combinations=None)
+    def parse(self, source: Optional[str] = None) -> ScrapingConfig:
+        """Parse default configuration (all reference types)"""
+        return ScrapingConfig(
+            reference_types=['specializations', 'skills', 'regions', 'companies'],
+            combinations=None
+        )

@@ -1,17 +1,41 @@
-version: "3.9"
+version: '3.9'
+
 services:
+  # PostgreSQL database (for local development)
   db:
     image: postgres:15
     environment:
       POSTGRES_DB: scraping_db
       POSTGRES_USER: scraper
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: your_password
     ports:
       - "5432:5432"
-  app:
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scraper"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Salary Scraper API
+  api:
     build: .
+    ports:
+      - "8000:8000"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
       - DATABASE_HOST=db
-    command: ["python", "main.py"] 
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=scraping_db
+      - DATABASE_USER=scraper
+      - DATABASE_PASSWORD=your_password
+    volumes:
+      - ./config.yaml:/app/config.yaml
+      - /tmp:/tmp
+    restart: unless-stopped
+
+volumes:
+  postgres_data: 
