@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Optional
 from datetime import datetime
 from dataclasses import asdict
+import concurrent.futures
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -17,17 +18,21 @@ from src.settings import Settings
 from src.database import PostgresRepository
 from src.scraper import HabrApiClient, SalaryScraper
 from src.config_parser import CsvConfigParser, DefaultConfigParser
+from src.core import ScrapingConfig
 
 app = FastAPI(
     title="Salary Scraper API", description="API for controlling Habr Career salary data scraping", version="1.0.0"
 )
 
 # Global variables for application state
-LOCK_FILE = "/tmp/scraper.lock"
+LOCK_FILE = Path("/tmp/scraper.lock")
 current_job_id: Optional[str] = None
 
 # Configuration: use SQLite for temporary storage (set via env var)
-USE_SQLITE_TEMP = os.environ.get("USE_SQLITE_TEMP", "false").lower() == "true"
+USE_SQLITE_TEMP = os.environ.get("USE_SQLITE_TEMP", "true").lower() == "true"
+
+# Thread pool for blocking operations
+executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
 
 def is_scraping_running() -> bool:
@@ -48,22 +53,42 @@ def remove_lock() -> None:
 
 
 async def run_scraper_task(config_parser, job_id: str):
-    """Background task to run the scraper"""
+    """Background task to run the scraper in separate thread"""
     global current_job_id
     current_job_id = job_id
 
+    print(f"[{job_id}] Received scraping task at {datetime.now()}")
+    print(f"[{job_id}] Storage type: {'SQLite' if USE_SQLITE_TEMP else 'PostgreSQL temp tables'}")
+
+    try:
+        # Run blocking scraper in thread pool
+        loop = asyncio.get_event_loop()
+        success = await loop.run_in_executor(executor, run_scraper_sync, config_parser, job_id)
+
+        if success:
+            print(f"[{job_id}] Scraping completed successfully")
+        else:
+            print(f"[{job_id}] Scraping failed")
+
+    except Exception as e:
+        print(f"[{job_id}] Scraping error: {str(e)}")
+    finally:
+        remove_lock()
+        current_job_id = None
+
+
+def run_scraper_sync(config_parser, job_id: str) -> bool:
+    """Synchronous scraper execution"""
     try:
         # Load settings
         settings = Settings.load("config.yaml")
 
-        # Choose repository implementation based on configuration
+        # Choose repository implementation
         if USE_SQLITE_TEMP:
-            print(f"🗄️  Using SQLite temporary storage for job {job_id}")
             from src.sqlite_storage import PostgresRepositoryWithSQLite
 
             repository = PostgresRepositoryWithSQLite(asdict(settings.database))
         else:
-            print(f"🗄️  Using PostgreSQL temp tables for job {job_id}")
             repository = PostgresRepository(asdict(settings.database))
 
         # Create API client and scraper
@@ -78,22 +103,17 @@ async def run_scraper_task(config_parser, job_id: str):
         # Parse configuration
         config = config_parser.parse()
 
-        print(f"Starting scraper job {job_id} at {datetime.now()}")
+        print(f"[{job_id}] Starting scraping with config: {config.reference_types}")
 
         # Run scraping
-        success = scraper.scrape(config)
-
-        if success:
-            print(f"Scraper job {job_id} completed successfully")
-        else:
-            print(f"Scraper job {job_id} failed")
+        return scraper.scrape(config)
 
     except Exception as e:
-        print(f"Scraper job {job_id} error: {str(e)}")
-    finally:
-        # Always cleanup
-        remove_lock()
-        current_job_id = None
+        print(f"[{job_id}] Error in scraper: {str(e)}")
+        import traceback
+
+        traceback.print_exc()
+        return False
 
 
 @app.get("/")

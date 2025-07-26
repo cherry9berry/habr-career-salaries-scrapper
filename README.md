@@ -1,316 +1,231 @@
-# 🔥 Habr Career Salary Scraper
+# Habr Career Salary Scraper
 
-Парсер зарплатных данных с сайта Habr Career с автоматическим CI/CD пайплайном и REST API.
+A production-ready salary data scraper for Habr Career with REST API, CI/CD pipeline, and cloud deployment.
 
-## 🏗️ Архитектура проекта
+## 🚀 Live Demo
 
-### 📁 Структура папок
-```
-salary_scrapping/
-├── src/                    # Основной код приложения
-│   ├── api/               # REST API (FastAPI)
-│   │   ├── __init__.py
-│   │   └── app.py         # API endpoints и логика
-│   ├── core.py            # Интерфейсы и базовые классы (SOLID принципы)
-│   ├── database.py        # Работа с PostgreSQL + временные таблицы
-│   ├── scraper.py         # HTTP клиент для API Habr + логика скрапинга
-│   ├── async_*.py         # Асинхронные версии для параллельного скрапинга
-│   ├── config_parser.py   # Парсинг CSV конфигураций
-│   └── settings.py        # Загрузка настроек из YAML
-├── tests/                 # Тесты (71 штука, покрытие 68%)
-│   ├── unit/             # Юнит-тесты каждого модуля
-│   └── integration/      # Интеграционные тесты
-├── .github/workflows/    # CI/CD пайплайны
-├── docs/                 # Документация
-├── scripts/              # Вспомогательные скрипты
-├── sql queries/          # SQL запросы для отчетов
-├── examples/             # Примеры конфигураций
-├── main.py               # CLI версия (для локального использования)
-├── run_api.py            # Запуск API сервера
-└── config.yaml           # Конфигурация БД и API
-```
+**API is running at:** https://habr-career-salaries-scrapper.onrender.com/
 
-### 🎯 Принципы архитектуры
-- **SOLID принципы** - каждый класс имеет одну ответственность
-- **Dependency Injection** - зависимости передаются через конструкторы
-- **Repository Pattern** - слой абстракции для работы с БД
-- **Interface Segregation** - интерфейсы для каждого компонента
-- **Временные таблицы** - данные не в RAM, а в PostgreSQL temporary tables
-
-## 💾 Новая система хранения данных
-
-### **Раньше: Хранение в RAM**
-❌ Данные терялись при краше  
-❌ Ограничения по памяти  
-❌ Сложно отслеживать прогресс  
-
-### **Сейчас: PostgreSQL временные таблицы**
-✅ **Надежность** - данные в БД, не теряются при краше  
-✅ **Масштабируемость** - нет ограничений по RAM  
-✅ **Атомарность** - либо все данные, либо ничего  
-✅ **Отмена** - просто DROP TABLE  
-
-```sql
--- Временная таблица создается для каждого скрапинга
-CREATE TEMPORARY TABLE temp_scraping_uuid123 (
-    id SERIAL PRIMARY KEY,
-    specialization_id INTEGER,
-    skills_1 INTEGER,
-    region_id INTEGER,
-    company_id INTEGER,  
-    data JSONB NOT NULL,
-    fetched_at TIMESTAMP DEFAULT NOW()
-);
-
--- При успешном завершении данные переносятся в основную таблицу
-INSERT INTO reports SELECT * FROM temp_scraping_uuid123;
-DROP TABLE temp_scraping_uuid123;
-```
-
-## 🚀 REST API
-
-### 📡 Доступные эндпоинты:
+### Quick Start Examples
 
 ```bash
-# Проверка здоровья API
-GET /health
-→ {"status": "healthy", "database": "connected"}
+# Check API health
+curl https://habr-career-salaries-scrapper.onrender.com/health
 
-# Статус скрапинга
-GET /api/status  
-→ {"status": "idle|running", "job_id": "uuid"}
-
-# Запуск полного скрапинга (все справочники)
-POST /api/scrape
-→ {"status": "started", "job_id": "uuid123"}
-
-# Запуск с загрузкой CSV файла
-POST /api/scrape/upload
-Content-Type: multipart/form-data
-Form: config=@config.csv
-→ {"status": "started", "job_id": "uuid456"}
-
-# Автогенерируемая документация
-GET /docs - Swagger UI
-GET /redoc - ReDoc документация
-```
-
-### 🔒 Защита от параллельного запуска
-
-API автоматически блокирует повторные запуски:
-```bash
-# Если скрапинг уже идет
-POST /api/scrape
-→ HTTP 409: {"detail": "Scraping already in progress"}
-```
-
-### 🎮 Примеры использования:
-
-```bash
-# Запуск полного скрапинга
-curl -X POST http://localhost:8000/api/scrape
-
-# Загрузка конфигурации из файла
-curl -X POST http://localhost:8000/api/scrape/upload \
-  -F "config=@examples/example_config.csv"
-
-# Проверка статуса
-curl http://localhost:8000/api/status
-```
-
-## 🚀 CI/CD Пайплайн (GitHub Actions)
-
-### 🔄 Что происходит при `git push`
-
-```mermaid
-graph TD
-    A[git push] --> B[GitHub получает код]
-    B --> C[Запускается CI workflow]
-    C --> D[Устанавливает Python 3.9]
-    C --> E[Устанавливает зависимости]
-    C --> F[Запускает линтеры]
-    C --> G[Запускает тесты]
-    
-    F --> F1[ruff check - проверка кода]
-    F --> F2[black --check - форматирование]
-    F --> F3[mypy - проверка типов]
-    
-    G --> G1[pytest - запуск 71 теста]
-    G --> G2[coverage - проверка покрытия >68%]
-    
-    F1 --> H{Все проверки OK?}
-    F2 --> H
-    F3 --> H
-    G1 --> H
-    G2 --> H
-    
-    H -->|✅ Да| I[✅ CI успешен - готов к деплою]
-    H -->|❌ Нет| J[❌ CI провален - исправь код]
-```
-
-### 📋 Файл `.github/workflows/ci.yml`
-```yaml
-# Автоматически запускается при push в main или PR
-# Проверяет качество кода и запускает тесты
-# Генерирует отчет покрытия кода
-```
-
-## 🌐 Рабочий деплой на Render.com + Supabase ✅
-
-### 🚀 **API РАБОТАЕТ:** https://habr-career-salaries-scrapper.onrender.com/
-
-### 📝 **Доступные эндпоинты:**
-- **GET /** - Информация об API и список команд
-- **GET /health** - Проверка работоспособности и БД  
-- **GET /api/status** - Статус скрапинга
-- **POST /api/scrape** - Запуск скрапинга (все справочники)
-- **POST /api/scrape/upload** - Загрузка CSV конфига и запуск
-
-### 🛠️ **Примеры использования:**
-```bash
-# Получить информацию об API
-curl https://habr-career-salaries-scrapper.onrender.com/
-
-# Проверить статус
-curl https://habr-career-salaries-scrapper.onrender.com/api/status
-
-# Запустить скрапинг всех данных
+# Start full scraping (all reference types)
 curl -X POST https://habr-career-salaries-scrapper.onrender.com/api/scrape
 
-# Загрузить свой config.csv
+# Upload custom CSV configuration
 curl -X POST -F 'config=@config.csv' https://habr-career-salaries-scrapper.onrender.com/api/scrape/upload
+
+# Check scraping status
+curl https://habr-career-salaries-scrapper.onrender.com/api/status
 ```
 
-### 📚 **Документация:**
-- **Swagger UI:** https://habr-career-salaries-scrapper.onrender.com/docs
-- **ReDoc:** https://habr-career-salaries-scrapper.onrender.com/redoc
+**API Documentation:**
+- Swagger UI: https://habr-career-salaries-scrapper.onrender.com/docs
+- ReDoc: https://habr-career-salaries-scrapper.onrender.com/redoc
 
-### 📊 Текущий статус данных:
-**Все справочные данные перенесены в Supabase:**
-- ✅ **specializations**: 165 записей
-- ✅ **skills**: 1,572 уникальных записи  
-- ✅ **regions**: 93 записи
-- ✅ **companies**: 467 записей
+## 🏗️ Architecture
 
-**Временное хранение во время скрапинга:** SQLite файлы
-
-### 🤔 Что такое "засыпание" и "холодный старт"?
-
-**🛌 Засыпание через 15 минут:**
-- Если к вашему приложению 15 минут никто не обращается - Render его "усыпляет"
-- Это экономит ресурсы на бесплатном плане
-- Приложение не работает, пока кто-то не сделает запрос
-
-**🥶 Холодный старт ~30 секунд:**
-- Когда приходит запрос к "спящему" приложению - оно "просыпается"
-- Первый запрос будет ждать ~30 секунд пока приложение загрузится
-- Последующие запросы работают быстро
-
-**🎯 Как это влияет на наш проект:**
-- ✅ **Не критично** - скрапинг запускается редко (раз в день/неделю)  
-- ✅ **30 секунд ожидания** - нормально для фонового процесса
-- ✅ **API остается доступным** - просто первый запрос медленный
-
-### 🗄️ Бесплатные базы данных 24/7
-
-**Render PostgreSQL** = 90 дней бесплатно → не подходит
-
-**🆓 Supabase (выбранное решение):**
-- ✅ **PostgreSQL** (совместимо с нашим кодом)
-- ✅ **Бесплатно навсегда** - никаких подтверждений по почте
-- ✅ 500MB хранилища
-- ✅ 2 CPU hours в день (достаточно для скрапинга)
-- ✅ Засыпает только при полном отсутствии активности >1 месяца
-- ✅ REST API из коробки (для аналитики)
-- ✅ Веб-интерфейс для управления данными
-
-## 🛠️ Развертывание (теория)
-
-### 🏃‍♂️ Пошаговый план:
-
-1. **Регистрируемся на Supabase** - бесплатная PostgreSQL база
-2. **Создаем проект на Render.com** - бесплатный хостинг API
-3. **Настраиваем переменные окружения:**
-   ```env
-   DATABASE_URL=postgresql://user:pass@supabase.com:5432/postgres
-   API_DELAY_MIN=1.5
-   API_DELAY_MAX=2.5
-   ```
-4. **Render автоматически:**
-   - Клонирует код из GitHub
-   - Устанавливает зависимости: `pip install -r requirements.txt`
-   - Запускает API: `python run_api.py`
-5. **GitHub Actions при успешном CI:**
-   - Автоматически триггерит новый деплой
-   - Render подтягивает новый код
-   - Перезапускает приложение
-
-### 🌊 Workflow пользователя:
-
+### Project Structure
 ```
-1. Разработчик → git push
-2. GitHub Actions → проверяет код  
-3. Render.com → деплоит новую версию API
-4. Пользователь → POST /api/scrape/upload + CSV файл
-5. API → создает временный SQLite файл для скрапинга  
-6. Скрапер → собирает данные в SQLite
-7. При успехе → переносит данные в основную таблицу
-8. Пользователь → анализирует данные через pgAdmin/Grafana
+salary_scrapping/
+├── src/                    # Core application code
+│   ├── api/               # REST API (FastAPI)
+│   ├── core.py            # Interfaces and DTOs (SOLID principles)
+│   ├── database.py        # PostgreSQL repository implementation
+│   ├── scraper.py         # Habr API client and scraping logic
+│   ├── async_*.py         # Async versions for parallel scraping
+│   ├── config_parser.py   # CSV configuration parsing
+│   ├── settings.py        # YAML/env configuration loading
+│   └── sqlite_storage.py  # Alternative SQLite temp storage
+├── tests/                 # Test suite (71 tests, 68% coverage)
+│   ├── unit/             # Unit tests for each module
+│   └── integration/      # End-to-end integration tests
+├── sql queries/          # SQL report templates
+├── examples/             # Example CSV configurations
+├── main.py               # CLI entry point
+├── run_api.py            # API server entry point
+└── config.yaml           # Database and API configuration
 ```
 
-## 🧪 Запуск локально
+### Key Design Principles
+- **SOLID principles** - Single responsibility, dependency injection
+- **Repository pattern** - Database abstraction layer
+- **Interface segregation** - Clean contracts for each component
+- **Temporary storage** - SQLite files instead of RAM for reliability
+- **Async support** - Both sync and async implementations
 
-### CLI версия (как раньше):
+## 💾 Data Storage Strategy
+
+### Temporary Storage During Scraping
+- **SQLite files** (default) - Reliable, file-based, no extra connections
+- **PostgreSQL temp tables** (optional) - Same DB transactions, auto cleanup
+
+### Permanent Storage
+- **PostgreSQL** (Supabase) - All scraped salary data and references
+- **Reference tables**: specializations (165), skills (1,572), regions (93), companies (467)
+- **Reports table**: JSON salary data with timestamps
+
+## 🔌 REST API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/` | API info and available endpoints |
+| GET | `/health` | Health check and database status |
+| GET | `/api/status` | Current scraping job status |
+| POST | `/api/scrape` | Start full scraping (all references) |
+| POST | `/api/scrape/upload` | Upload CSV config and start custom scraping |
+| GET | `/docs` | Interactive Swagger documentation |
+| GET | `/redoc` | Alternative API documentation |
+
+### API Features
+- **Concurrent job prevention** - Only one scraping job at a time
+- **Background processing** - Non-blocking async execution
+- **File upload support** - Multipart form data for CSV configs
+- **Automatic retries** - Built-in retry logic for API calls
+- **Rate limiting** - Configurable delays between requests
+
+## 🚀 Deployment
+
+### Current Infrastructure
+- **API hosting**: Render.com (free tier)
+- **Database**: Supabase PostgreSQL (free tier)
+- **CI/CD**: GitHub Actions
+- **Monitoring**: Built-in health checks and status endpoints
+
+### Environment Variables
+```env
+# Database connection (Supabase)
+DATABASE_HOST=aws-0-eu-central-1.pooler.supabase.com
+DATABASE_PORT=5432
+DATABASE_NAME=postgres
+DATABASE_USER=postgres.cehitgienxwzplcxbfdk
+DATABASE_PASSWORD=your_password
+
+# API configuration
+API_URL=https://career.habr.com/api/frontend_v1/salary_calculator/general_graph
+API_DELAY_MIN=1.5
+API_DELAY_MAX=2.5
+
+# Storage type (optional)
+USE_SQLITE_TEMP=true  # or false for PostgreSQL temp tables
+```
+
+## 🧪 Local Development
+
+### Prerequisites
+- Python 3.9+
+- PostgreSQL (or use Docker)
+- pip or Poetry
+
+### Quick Start
 ```bash
-# 1. Установить зависимости
+# 1. Clone repository
+git clone https://github.com/your-username/salary_scrapping.git
+cd salary_scrapping
+
+# 2. Install dependencies
 pip install -r requirements.txt
 
-# 2. Настроить config.yaml
-database:
-  host: localhost
-  database: scraping_db
-  # ...
+# 3. Configure database (edit config.yaml)
+# Or use environment variables
 
-# 3. Запустить скрапинг
-python main.py                    # Все справочники
-python main.py config.csv         # Кастомная конфигурация
-```
-
-### API версия (новая):
-```bash
-# 1. Установить зависимости (включая FastAPI)
-pip install -r requirements.txt
-
-# 2. Запустить API сервер
+# 4. Run API server
 python run_api.py
-# или
-uvicorn src.api.app:app --host 0.0.0.0 --port 8000
+# API available at http://localhost:8000
 
-# 3. Открыть документацию
-# http://localhost:8000/docs
-
-# 4. Использовать API
-curl -X POST http://localhost:8000/api/scrape
+# 5. Or use CLI version
+python main.py                    # Scrape all references
+python main.py config.csv         # Use custom CSV config
 ```
 
-### Docker (полный стек):
+### Docker Setup
 ```bash
-# Запуск PostgreSQL + API
+# Start PostgreSQL + API
 docker-compose up
 
-# API доступен на http://localhost:8000
-# PostgreSQL на localhost:5432
+# API: http://localhost:8000
+# PostgreSQL: localhost:5432
 ```
 
-## 📊 Мониторинг и отладка
+### Running Tests
+```bash
+# Run all tests
+pytest
 
-- **Логи на Render:** доступны в веб-интерфейсе
-- **Тесты:** автоматически в CI, локально `pytest`
-- **Покрытие кода:** `htmlcov/index.html` после `pytest --cov`
-- **Линтеры:** `ruff check src`, `black --check .`, `mypy src`
-- **API документация:** `/docs` и `/redoc` эндпоинты
-- **Здоровье системы:** `/health` эндпоинт
+# With coverage report
+pytest --cov=src --cov-report=html
 
----
+# Run specific test category
+python run_tests.py unit
+python run_tests.py integration
+```
 
-**🎯 Итог:** Проект готов к автоматическому деплою с REST API управлением и надежным хранением данных!
+### Code Quality
+```bash
+# Linting
+ruff check src
+
+# Formatting
+black .
+
+# Type checking
+mypy src
+```
+
+## 📊 CSV Configuration Format
+
+Create custom scraping configurations with CSV files:
+
+```csv
+skills,regions,specializations
+python,c_678,backend
+javascript,russian_capitals,frontend
+docker,ekaterinburg,devops
+```
+
+Each row represents a combination to scrape. The scraper will:
+1. Parse headers as reference types
+2. Read each row as specific combinations
+3. Make API calls for each combination
+4. Save results to database
+
+## 🔄 CI/CD Pipeline
+
+GitHub Actions workflow on every push:
+1. **Setup** - Python 3.9 environment
+2. **Dependencies** - Install requirements
+3. **Linting** - ruff, black, mypy checks
+4. **Testing** - Run 71 tests with coverage
+5. **Deploy** - Auto-deploy to Render.com on main branch
+
+## 📈 SQL Reports
+
+Pre-built SQL queries in `sql queries/` folder:
+- `readable_report.sql` - Human-friendly salary report
+- `summary_report.sql` - Aggregated statistics by type
+- `top_salaries.sql` - Top 20 highest salaries
+- `simple_report.sql` - Basic data overview
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Make changes and add tests
+4. Ensure all tests pass (`pytest`)
+5. Check code quality (`ruff check`, `black .`, `mypy src`)
+6. Commit changes (`git commit -m 'Add amazing feature'`)
+7. Push to branch (`git push origin feature/amazing-feature`)
+8. Open Pull Request
+
+## 📝 License
+
+This project is for educational purposes. Please respect Habr Career's terms of service when using this scraper.
+
+## 🙏 Acknowledgments
+
+- Built with FastAPI, PostgreSQL, and modern Python practices
+- Deployed on Render.com and Supabase free tiers
+- Inspired by the need for salary transparency in IT

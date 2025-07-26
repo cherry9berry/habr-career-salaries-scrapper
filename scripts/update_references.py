@@ -6,27 +6,26 @@ import argparse
 import pandas as pd
 import psycopg2
 from datetime import datetime
-import json
 import sys
+from dataclasses import asdict
+
+from src.settings import Settings
 
 
-def load_config():
-    """Load database configuration"""
-    with open("config.json", "r", encoding="utf-8") as f:
-        config = json.load(f)
-    return config["database"]
-
-
-def update_reference(table_name: str, file_path: str, db_config: dict):
+def update_reference(table_name: str, file_path: str):
     """Update reference table from Excel file"""
     valid_tables = ["specializations", "skills", "regions", "companies"]
 
     if table_name not in valid_tables:
         print(f"Invalid table: {table_name}")
-        print(f"   Valid tables: {', '.join(valid_tables)}")
+        print(f"Valid tables: {', '.join(valid_tables)}")
         return False
 
     try:
+        # Load database configuration
+        settings = Settings.load("config.yaml")
+        db_config = asdict(settings.database)
+
         # Read Excel file
         df = pd.read_excel(file_path, header=0)
         print(f"Read {len(df)} rows from {file_path}")
@@ -84,10 +83,7 @@ def main():
     parser.add_argument("file", help="Excel file with reference data (must have 'title' and 'alias' columns)")
 
     args = parser.parse_args()
-
-    db_config = load_config()
-    success = update_reference(args.table, args.file, db_config)
-
+    success = update_reference(args.table, args.file)
     sys.exit(0 if success else 1)
 
 

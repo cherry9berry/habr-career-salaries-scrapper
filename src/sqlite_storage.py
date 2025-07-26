@@ -1,5 +1,5 @@
 """
-Альтернативная реализация временного хранения через SQLite
+Alternative implementation of temporary storage using SQLite
 """
 
 import sqlite3
@@ -14,23 +14,23 @@ from src.core import IRepository, Reference, SalaryData
 
 
 class SQLiteTemporaryStorage:
-    """Временное хранилище данных в SQLite"""
+    """Temporary data storage in SQLite"""
 
     def __init__(self, transaction_id: str):
         self.transaction_id = transaction_id
-        # Создаем временный файл для SQLite
+        # Create temporary file for SQLite
         self.temp_file = tempfile.NamedTemporaryFile(
             suffix=f'_{transaction_id}.db', delete=False, prefix='scraper_temp_'
         )
         self.db_path = self.temp_file.name
-        self.temp_file.close()  # Закрываем файл, но не удаляем
+        self.temp_file.close()  # Close file but don't delete
 
-        # Подключаемся к SQLite
+        # Connect to SQLite
         self.conn = sqlite3.connect(self.db_path)
         self._create_temp_table()
 
     def _create_temp_table(self):
-        """Создает временную таблицу в SQLite"""
+        """Create temporary table in SQLite"""
         cursor = self.conn.cursor()
         cursor.execute(
             """
@@ -46,7 +46,7 @@ class SQLiteTemporaryStorage:
         """
         )
 
-        # Создаем индексы для быстрого поиска
+        # Create indexes for fast lookups
         cursor.execute("CREATE INDEX idx_temp_specialization ON temp_reports(specialization_id)")
         cursor.execute("CREATE INDEX idx_temp_skills ON temp_reports(skills_1)")
         cursor.execute("CREATE INDEX idx_temp_region ON temp_reports(region_id)")
@@ -56,11 +56,11 @@ class SQLiteTemporaryStorage:
         cursor.close()
 
     def save_report(self, data: SalaryData) -> bool:
-        """Сохранить данные во временное хранилище"""
+        """Save data to temporary storage"""
         try:
             cursor = self.conn.cursor()
 
-            # Определяем поле для вставки
+            # Determine field for insertion
             field_mapping = {
                 'specializations': 'specialization_id',
                 'skills': 'skills_1',
@@ -72,7 +72,7 @@ class SQLiteTemporaryStorage:
             if not field_name:
                 return False
 
-            # Формируем SQL с правильным полем
+            # Build SQL with correct field
             if field_name == 'specialization_id':
                 cursor.execute(
                     """
@@ -115,7 +115,7 @@ class SQLiteTemporaryStorage:
             return False
 
     def get_all_reports(self) -> List[tuple]:
-        """Получить все данные из временного хранилища"""
+        """Get all data from temporary storage"""
         cursor = self.conn.cursor()
         cursor.execute(
             """
@@ -129,7 +129,7 @@ class SQLiteTemporaryStorage:
         return rows
 
     def count_reports(self) -> int:
-        """Подсчитать количество записей"""
+        """Count number of records"""
         cursor = self.conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM temp_reports")
         count = cursor.fetchone()[0]
@@ -137,7 +137,7 @@ class SQLiteTemporaryStorage:
         return count
 
     def cleanup(self):
-        """Закрыть соединение и удалить временный файл"""
+        """Close connection and remove temporary file"""
         if self.conn:
             self.conn.close()
 
@@ -150,7 +150,7 @@ class SQLiteTemporaryStorage:
 
 
 class PostgresRepositoryWithSQLite(IRepository):
-    """PostgreSQL репозиторий с SQLite для временного хранения"""
+    """PostgreSQL repository with SQLite for temporary storage"""
 
     def __init__(self, config: dict):
         from src.database import PostgresRepository
@@ -159,19 +159,19 @@ class PostgresRepositoryWithSQLite(IRepository):
         self.temp_storages: dict[str, SQLiteTemporaryStorage] = {}
 
     def get_references(self, table_name: str, limit: int = 2000) -> List[Reference]:
-        """Получить справочники из PostgreSQL"""
+        """Get references from PostgreSQL"""
         return self.postgres_repo.get_references(table_name, limit)
 
     def save_report(self, data: SalaryData, transaction_id: str) -> bool:
-        """Сохранить во временное SQLite хранилище"""
-        # Создаем SQLite хранилище если еще нет
+        """Save to temporary SQLite storage"""
+        # Create SQLite storage if not exists
         if transaction_id not in self.temp_storages:
             self.temp_storages[transaction_id] = SQLiteTemporaryStorage(transaction_id)
 
         return self.temp_storages[transaction_id].save_report(data)
 
     def commit_transaction(self, transaction_id: str) -> None:
-        """Перенести данные из SQLite в PostgreSQL"""
+        """Transfer data from SQLite to PostgreSQL"""
         if transaction_id not in self.temp_storages:
             print(f"No SQLite storage found for transaction {transaction_id}")
             return
@@ -188,13 +188,13 @@ class PostgresRepositoryWithSQLite(IRepository):
 
         print(f"Committing {count} reports from SQLite to PostgreSQL...")
 
-        # Используем PostgreSQL соединение для коммита
+        # Use PostgreSQL connection for commit
         with self.postgres_repo.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("BEGIN")
 
             try:
-                # Переносим данные порциями
+                # Transfer data in batches
                 from psycopg2.extras import execute_values
 
                 batch_data = []
@@ -220,7 +220,7 @@ class PostgresRepositoryWithSQLite(IRepository):
                     page_size=1000,
                 )
 
-                # Логируем операцию
+                # Log operation
                 cursor.execute(
                     """
                     INSERT INTO report_log (report_date, report_type, total_variants, success_count, duration_seconds, status)
@@ -239,12 +239,12 @@ class PostgresRepositoryWithSQLite(IRepository):
             finally:
                 cursor.close()
 
-        # Очищаем временное хранилище
+        # Clean up temporary storage
         temp_storage.cleanup()
         del self.temp_storages[transaction_id]
 
     def rollback_transaction(self, transaction_id: str) -> None:
-        """Откатить транзакцию - просто удалить SQLite файл"""
+        """Rollback transaction - just remove SQLite file"""
         if transaction_id in self.temp_storages:
             temp_storage = self.temp_storages[transaction_id]
             temp_storage.cleanup()
@@ -254,5 +254,5 @@ class PostgresRepositoryWithSQLite(IRepository):
             print(f"No SQLite storage to rollback for transaction {transaction_id}")
 
     def transaction_exists(self, transaction_id: str) -> bool:
-        """Проверить существование транзакции"""
+        """Check if transaction exists"""
         return transaction_id in self.temp_storages
