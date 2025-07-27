@@ -18,8 +18,8 @@ SECRET_PATTERNS = [
 ]
 
 # Исключения из проверки
-EXCLUDE_DIRS = {'.git', '__pycache__', '.pytest_cache', '.mypy_cache', 'node_modules'}
-EXCLUDE_FILES = {'check-secrets.py', 'pre-commit'}
+EXCLUDE_DIRS = {'.git', '__pycache__', '.pytest_cache', '.mypy_cache', 'node_modules', '.ruff_cache', '.coverage'}
+EXCLUDE_FILES = {'check-secrets.py', 'pre-commit', 'CACHEDIR.TAG', '.coverage', 'coverage.xml'}
 
 # Файлы с примерами - проверяем только критичные паттерны
 EXAMPLE_FILES = {'config.example.yaml', 'README.md', 'docker-compose.yml', 'render_setup.sh'}
@@ -35,6 +35,7 @@ SAFE_EXAMPLES = {
     'your_secret',
     'your_token',
     'example_password',
+    '8a477f597d28d172789f06886806bc55',  # ruff cache hash
 }
 
 
