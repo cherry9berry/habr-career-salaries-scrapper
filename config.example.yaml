@@ -1,0 +1,30 @@
+# Database configuration (EXAMPLE - replace with real values)
+database:
+  # Replace with your actual database settings
+  host: "your-database-host.com"
+  port: 5432  
+  database: "your_database_name"
+  user: "your_database_user"
+  password: "your_secure_password"
+  
+  # Local PostgreSQL example (commented out)
+  # host: localhost
+  # port: 5432
+  # database: scraping_db
+  # user: scraper
+  # password: your_password
+
+# API configuration  
+api:
+  url: "https://career.habr.com/api/frontend_v1/salary_calculator/general_graph"
+  delay_min: 1.5
+  delay_max: 2.5
+  retry_attempts: 3
+
+# Scraping limits
+max_references: 2000
+
+# Temporary storage for scraping data
+# Set USE_SQLITE_TEMP=true in environment to use SQLite files instead of PostgreSQL temp tables
+# SQLite is better for: file-based storage, no additional connections, portable
+# PostgreSQL temp tables are better for: same database transactions, automatic cleanup 
