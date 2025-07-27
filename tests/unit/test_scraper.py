@@ -231,11 +231,11 @@ class TestSalaryScraper(unittest.TestCase):
 
         config = ScrapingConfig(reference_types=["skills"], combinations=None)
 
-        with patch('builtins.print') as mock_print:
+        with patch('src.scraper.logging.info') as mock_logging:
             self.scraper.scrape(config)
 
-            # Should print progress at multiples of 10
-            progress_calls = [call for call in mock_print.call_args_list if "Progress:" in str(call)]
+            # Should log progress at multiples of 10
+            progress_calls = [call for call in mock_logging.call_args_list if "Progress:" in str(call)]
             self.assertGreater(len(progress_calls), 0)
 
 
