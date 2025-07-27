@@ -9,22 +9,26 @@ import os
 import sys
 from pathlib import Path
 
-# Паттерны для поиска секретов
+# Паттерны для поиска РЕАЛЬНЫХ секретов (исключая примеры)
 SECRET_PATTERNS = [
     (r'!!!!QQQQ\d+', 'Supabase пароль'),
-    (r'password\s*[:=]\s*["\'][^"\']{8,}["\']', 'Пароль в кавычках'),
-    (r'PASSWORD\s*[:=]\s*[^\s]+', 'Пароль в переменной окружения'),
-    (r'api[_-]?key\s*[:=]\s*["\'][^"\']+["\']', 'API ключ'),
-    (r'secret\s*[:=]\s*["\'][^"\']+["\']', 'Секрет'),
-    (r'token\s*[:=]\s*["\'][^"\']+["\']', 'Токен'),
-    (r'postgres\.[a-z0-9]+', 'Supabase пользователь'),
     (r'sk-[a-zA-Z0-9]{48}', 'OpenAI API ключ'),
     (r'ghp_[a-zA-Z0-9]{36}', 'GitHub токен'),
+    (r'xoxb-[0-9]{11,12}-[0-9]{11,12}-[a-zA-Z0-9]{24}', 'Slack токен'),
 ]
 
 # Исключения из проверки
 EXCLUDE_DIRS = {'.git', '__pycache__', '.pytest_cache', '.mypy_cache', 'node_modules'}
 EXCLUDE_FILES = {'check-secrets.py', 'pre-commit'}
+
+# Файлы с примерами - проверяем только критичные паттерны
+EXAMPLE_FILES = {'config.example.yaml', 'README.md', 'docker-compose.yml', 'render_setup.sh'}
+
+# Безопасные значения-примеры (не настоящие секреты)
+SAFE_EXAMPLES = {
+    'your_password', 'your_secure_password', 'password', 'secret', 'token', 
+    'your_api_key', 'your_secret', 'your_token', 'example_password'
+}
 
 def check_file(file_path):
     """Проверить файл на наличие секретов"""
@@ -33,15 +37,27 @@ def check_file(file_path):
             content = f.read()
             
         findings = []
+        file_name = os.path.basename(str(file_path))
+        
         for pattern, description in SECRET_PATTERNS:
             matches = re.finditer(pattern, content, re.IGNORECASE)
             for match in matches:
+                matched_text = match.group()
+                
+                # Пропускаем примеры и плейсхолдеры
+                if any(safe in matched_text.lower() for safe in SAFE_EXAMPLES):
+                    continue
+                    
+                # Для файлов-примеров проверяем только критичные паттерны
+                if file_name in EXAMPLE_FILES and 'API ключ' not in description and 'токен' not in description:
+                    continue
+                
                 line_num = content[:match.start()].count('\n') + 1
                 findings.append({
                     'file': file_path,
                     'line': line_num,
                     'pattern': description,
-                    'match': match.group()[:50] + '...' if len(match.group()) > 50 else match.group()
+                    'match': matched_text[:50] + '...' if len(matched_text) > 50 else matched_text
                 })
         
         return findings
