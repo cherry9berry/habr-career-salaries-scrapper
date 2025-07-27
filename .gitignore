@@ -175,7 +175,18 @@ runer.py
 combiner.py
 skills_*.xlsx 
 
-# Database configs with sensitive data
+# Привет =)
 config.yaml
 config.local.yaml
 config.prod.yaml
+config.yaml
+config.local.yaml
+config.prod.yaml
+*.key
+*.pem
+.env*
+!.env.example
+*.md.backup
+notes.md
+debug.md
+temp.md

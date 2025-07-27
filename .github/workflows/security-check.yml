@@ -1,0 +1,55 @@
+name: Security Check
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Scan for secrets
+      run: |
+        echo "🔍 Сканирование секретов..."
+        
+        # Паттерны для поиска секретов
+        PATTERNS=(
+          "!!!!QQQQ[0-9]+"
+          "password\s*[:=]\s*[\"'][^\"']{8,}"
+          "PASSWORD\s*[:=]\s*[^\s]+"
+          "api[_-]?key\s*[:=]\s*[\"'][^\"']+[\"']"
+          "secret\s*[:=]\s*[\"'][^\"']+[\"']"
+          "token\s*[:=]\s*[\"'][^\"']+[\"']"
+          "postgres\.[a-z0-9]+"
+          "sk-[a-zA-Z0-9]{48}"
+          "ghp_[a-zA-Z0-9]{36}"
+        )
+        
+        FOUND_SECRETS=0
+        for pattern in "${PATTERNS[@]}"; do
+          if grep -r -E "$pattern" . --exclude-dir=.git --exclude-dir=node_modules --exclude="*.log"; then
+            echo "❌ Найден подозрительный паттерн: $pattern"
+            FOUND_SECRETS=1
+          fi
+        done
+        
+        if [ $FOUND_SECRETS -eq 1 ]; then
+          echo "🚨 НАЙДЕНЫ ПОТЕНЦИАЛЬНЫЕ СЕКРЕТЫ!"
+          exit 1
+        else
+          echo "✅ Секреты не найдены"
+        fi
+
+    - name: Check gitignore coverage
+      run: |
+        echo "📋 Проверка покрытия .gitignore..."
+        if [ -f "config.yaml" ] && ! git check-ignore config.yaml; then
+          echo "⚠️  config.yaml не игнорируется git"
+          echo "Добавьте config.yaml в .gitignore"
+        fi 
