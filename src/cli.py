@@ -39,8 +39,5 @@ def update(table: str, file: Path):
     update_reference(table, str(file))
 
 
-
-
-
 if __name__ == "__main__":
     app()

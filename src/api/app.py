@@ -42,16 +42,16 @@ executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 def keep_alive_ping():
     """Send periodic requests to keep Render.com service alive"""
     global keep_alive_active
-    
+
     # Get service URL from environment or use localhost
     service_url = os.environ.get("RENDER_EXTERNAL_URL", "http://localhost:8000")
     ping_url = f"{service_url}/health"
-    
+
     while keep_alive_active:
         try:
             # Wait 10 minutes before next ping
             time.sleep(600)  # 10 minutes
-            
+
             if keep_alive_active:  # Check again after sleep
                 requests.get(ping_url, timeout=30)
                 print(f"[KEEP-ALIVE] Pinged {ping_url} to prevent sleep")
