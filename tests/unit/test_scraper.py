@@ -80,7 +80,7 @@ class TestHabrApiClient(unittest.TestCase):
         test_cases = [
             ({"spec_alias": "backend"}, {"spec_aliases[]": "backend"}),
             ({"skill_aliases": ["python", "django"]}, {"skills[]": ["python", "django"]}),
-            ({"region_alias": "moscow"}, {"region_aliases[]": "moscow"}),
+            ({"region_alias": "moscow"}, {"locations[]": "moscow"}),
             ({"company_alias": "google"}, {"company_alias": "google"}),
         ]
 
