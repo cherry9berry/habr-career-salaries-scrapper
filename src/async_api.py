@@ -34,7 +34,12 @@ class AsyncHabrApiClient:
         if "skill_aliases" in params:
             api_params["skills[]"] = params["skill_aliases"]
         if "region_alias" in params:
-            api_params["region_aliases[]"] = params["region_alias"]
+            # Regions must be sent as array key 'locations[]'
+            value = params["region_alias"]
+            if isinstance(value, list):
+                api_params["locations[]"] = value
+            else:
+                api_params["locations[]"] = value
         if "company_alias" in params:
             api_params["company_alias"] = params["company_alias"]
 
