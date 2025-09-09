@@ -44,7 +44,7 @@ class IRepository(ABC):
         pass
 
     @abstractmethod
-    def save_report(self, data: SalaryData, transaction_id: str) -> bool:
+    def save_report(self, data: SalaryData, transaction_id: str, timestamp: Optional[datetime] = None) -> bool:
         """Save report to database"""
         pass
 

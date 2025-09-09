@@ -56,7 +56,7 @@ class SQLiteTemporaryStorage:
         self.conn.commit()
         cursor.close()
 
-    def save_report(self, data: SalaryData) -> bool:
+    def save_report(self, data: SalaryData, timestamp: Optional[datetime] = None) -> bool:
         """Save data to temporary storage"""
         try:
             cursor = self.conn.cursor()
@@ -80,7 +80,7 @@ class SQLiteTemporaryStorage:
                     INSERT INTO temp_reports (specialization_id, skills_1, region_id, company_id, data, fetched_at)
                     VALUES (?, NULL, NULL, NULL, ?, ?)
                 """,
-                    (data.reference_id, json.dumps(data.data), datetime.now().isoformat()),
+                    (data.reference_id, json.dumps(data.data), (timestamp or datetime.now()).isoformat()),
                 )
             elif field_name == 'skills_1':
                 cursor.execute(
@@ -88,7 +88,7 @@ class SQLiteTemporaryStorage:
                     INSERT INTO temp_reports (specialization_id, skills_1, region_id, company_id, data, fetched_at)
                     VALUES (NULL, ?, NULL, NULL, ?, ?)
                 """,
-                    (data.reference_id, json.dumps(data.data), datetime.now().isoformat()),
+                    (data.reference_id, json.dumps(data.data), (timestamp or datetime.now()).isoformat()),
                 )
             elif field_name == 'region_id':
                 cursor.execute(
@@ -96,7 +96,7 @@ class SQLiteTemporaryStorage:
                     INSERT INTO temp_reports (specialization_id, skills_1, region_id, company_id, data, fetched_at)
                     VALUES (NULL, NULL, ?, NULL, ?, ?)
                 """,
-                    (data.reference_id, json.dumps(data.data), datetime.now().isoformat()),
+                    (data.reference_id, json.dumps(data.data), (timestamp or datetime.now()).isoformat()),
                 )
             elif field_name == 'company_id':
                 cursor.execute(
@@ -104,7 +104,7 @@ class SQLiteTemporaryStorage:
                     INSERT INTO temp_reports (specialization_id, skills_1, region_id, company_id, data, fetched_at)
                     VALUES (NULL, NULL, NULL, ?, ?, ?)
                 """,
-                    (data.reference_id, json.dumps(data.data), datetime.now().isoformat()),
+                    (data.reference_id, json.dumps(data.data), (timestamp or datetime.now()).isoformat()),
                 )
 
             self.conn.commit()
@@ -163,13 +163,13 @@ class PostgresRepositoryWithSQLite(IRepository):
         """Get references from PostgreSQL"""
         return self.postgres_repo.get_references(table_name, limit)
 
-    def save_report(self, data: SalaryData, transaction_id: str) -> bool:
+    def save_report(self, data: SalaryData, transaction_id: str, timestamp: Optional[datetime] = None) -> bool:
         """Save to temporary SQLite storage"""
         # Create SQLite storage if not exists
         if transaction_id not in self.temp_storages:
             self.temp_storages[transaction_id] = SQLiteTemporaryStorage(transaction_id)
 
-        return self.temp_storages[transaction_id].save_report(data)
+        return self.temp_storages[transaction_id].save_report(data, timestamp)
 
     def commit_transaction(self, transaction_id: str) -> None:
         """Transfer data from SQLite to PostgreSQL"""

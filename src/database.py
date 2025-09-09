@@ -80,7 +80,7 @@ class PostgresRepository(IRepository):
 
         return [Reference(id=row[0], title=row[1], alias=row[2]) for row in rows]
 
-    def save_report(self, data: SalaryData, transaction_id: str) -> bool:
+    def save_report(self, data: SalaryData, transaction_id: str, timestamp: Optional[datetime] = None) -> bool:
         """Save report to temporary table"""
         try:
             with self.get_connection() as conn:
@@ -116,7 +116,7 @@ class PostgresRepository(IRepository):
                     INSERT INTO {table_name} ({field_name}, data, fetched_at)
                     VALUES (%s, %s, %s)
                 """,
-                    (data.reference_id, Json(data.data), datetime.now()),
+                    (data.reference_id, Json(data.data), timestamp or datetime.now()),
                 )
 
                 conn.commit()

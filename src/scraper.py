@@ -80,6 +80,7 @@ class SalaryScraper(IScraper):
     def scrape(self, config: ScrapingConfig) -> bool:
         """Execute scraping based on configuration"""
         transaction_id = str(uuid.uuid4())
+        transaction_timestamp = datetime.now()  # Единая дата для всей транзакции
         total_count = 0
         success_count = 0
 
@@ -88,14 +89,14 @@ class SalaryScraper(IScraper):
                 # Scrape specific combinations
                 logging.info(f"Scraping combinations: {config.combinations}")
                 for combination in config.combinations:
-                    count, success = self._scrape_combination(combination, transaction_id)
+                    count, success = self._scrape_combination(combination, transaction_id, transaction_timestamp)
                     total_count += count
                     success_count += success
             else:
                 # Scrape individual reference types
                 logging.info(f"Scraping individual references: {config.reference_types}")
                 for ref_type in config.reference_types:
-                    count, success = self._scrape_reference_type(ref_type, transaction_id)
+                    count, success = self._scrape_reference_type(ref_type, transaction_id, transaction_timestamp)
                     total_count += count
                     success_count += success
 
@@ -113,7 +114,7 @@ class SalaryScraper(IScraper):
             logging.error(f"Critical error during scraping: {e}")
             return False
 
-    def _scrape_reference_type(self, ref_type: str, transaction_id: str) -> tuple[int, int]:
+    def _scrape_reference_type(self, ref_type: str, transaction_id: str, timestamp: datetime) -> tuple[int, int]:
         """Scrape single reference type"""
         references = self.repository.get_references(ref_type)
         total = len(references)
@@ -127,7 +128,7 @@ class SalaryScraper(IScraper):
 
             if data:
                 salary_data = SalaryData(data=data, reference_id=ref.id, reference_type=ref_type)
-                self.repository.save_report(salary_data, transaction_id)
+                self.repository.save_report(salary_data, transaction_id, timestamp)
                 success += 1
 
             if (i + 1) % 10 == 0:
@@ -135,7 +136,7 @@ class SalaryScraper(IScraper):
 
         return total, success
 
-    def _scrape_combination(self, combination: tuple, transaction_id: str) -> tuple[int, int]:
+    def _scrape_combination(self, combination: tuple, transaction_id: str, timestamp: datetime) -> tuple[int, int]:
         """Scrape specific combination from CSV row"""
         logging.info(f"Processing combination: {combination}")
 
@@ -172,7 +173,7 @@ class SalaryScraper(IScraper):
                 # Save data for each reference type in the combination
                 for ref_type, ref in ref_data:
                     salary_data = SalaryData(data=data, reference_id=ref.id, reference_type=ref_type)
-                    self.repository.save_report(salary_data, transaction_id)
+                    self.repository.save_report(salary_data, transaction_id, timestamp)
 
                 return 1, 1  # 1 combination processed, 1 successful
             else:
