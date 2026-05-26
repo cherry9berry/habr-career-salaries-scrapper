@@ -1,231 +1,129 @@
-# Habr Career Salary Scraper
+# habr-career-salaries-scraper
 
-A production-ready salary data scraper for Habr Career with REST API, CI/CD pipeline, and cloud deployment.
+Scraper for the Habr Career salary calculator API. Iterates through all entries in each reference dimension (specializations, skills, regions, companies), fetches salary distribution data per entry, and persists results to PostgreSQL.
 
-## 🚀 Live Demo
+Built as a data pipeline microservice: REST API for job control, structured storage for downstream BI queries.
 
-**API is running at:** https://habr-career-salaries-scrapper.onrender.com/
+## How it works
 
-### Quick Start Examples
+Habr Career exposes a salary calculator endpoint that returns percentile salary distributions filtered by a single dimension — specialization, skill, region, or company. This service:
 
-```bash
-# Check API health
-curl https://habr-career-salaries-scrapper.onrender.com/health
+1. Loads all reference entries from PostgreSQL (populated once via `03_initial_data.sql`)
+2. Iterates through each dimension sequentially, fetching one entry at a time
+3. Persists raw JSON response alongside reference FK and run metadata
+4. Commits the entire batch atomically on success; rolls back on failure
 
-# Start full scraping (all reference types)
-curl -X POST https://habr-career-salaries-scrapper.onrender.com/api/scrape
+Scraping is intentionally **sequential with randomized delays** — the target is a public frontend API, not a documented data endpoint. Parallel scraping would create disproportionate load and risk IP blocks.
 
-# Upload custom CSV configuration
-curl -X POST -F 'config=@config.csv' https://habr-career-salaries-scrapper.onrender.com/api/scrape/upload
+## Architecture
 
-# Check scraping status
-curl https://habr-career-salaries-scrapper.onrender.com/api/status
+```
+src/
+├── core.py            # Domain interfaces and value objects (IRepository, IApiClient, IScraper)
+├── scraper.py         # Habr API client + scraping orchestration
+├── database.py        # PostgreSQL repository (repository pattern)
+├── config_parser.py   # Scraping scope configuration
+├── settings.py        # Config loading: env vars → YAML fallback
+└── api/
+    └── app.py         # FastAPI: job control endpoints
 ```
 
-**API Documentation:**
-- Swagger UI: https://habr-career-salaries-scrapper.onrender.com/docs
-- ReDoc: https://habr-career-salaries-scrapper.onrender.com/redoc
+Dependency injection via interfaces — storage backend is swappable by implementing `IRepository`.
 
-## 🏗️ Architecture
+## Data model
 
-### Project Structure
+Reference tables (populated before first run):
+
+| Table | Entries | Description |
+|---|---|---|
+| `specializations` | 165 | Job specializations |
+| `skills` | 1,572 | Technical skills |
+| `regions` | 93 | Geographic regions |
+| `companies` | 467 | Companies |
+
+Fact table:
+
+```sql
+reports (
+    id              BIGSERIAL PRIMARY KEY,
+    specialization_id INTEGER REFERENCES specializations(id),
+    skill_id          INTEGER REFERENCES skills(id),
+    region_id         INTEGER REFERENCES regions(id),
+    company_id        INTEGER REFERENCES companies(id),
+    data              JSONB NOT NULL,      -- raw API response
+    fetched_at        TIMESTAMP NOT NULL
+)
 ```
-salary_scrapping/
-├── src/                    # Core application code
-│   ├── api/               # REST API (FastAPI)
-│   ├── core.py            # Interfaces and DTOs (SOLID principles)
-│   ├── database.py        # PostgreSQL repository implementation
-│   ├── scraper.py         # Habr API client and scraping logic
-│   ├── async_*.py         # Async versions for parallel scraping
-│   ├── config_parser.py   # CSV configuration parsing
-│   ├── settings.py        # YAML/env configuration loading
-│   └── sqlite_storage.py  # Alternative SQLite temp storage
-├── tests/                 # Test suite (71 tests, 68% coverage)
-│   ├── unit/             # Unit tests for each module
-│   └── integration/      # End-to-end integration tests
-├── sql queries/          # SQL report templates
-├── examples/             # Example CSV configurations
-├── main.py               # CLI entry point
-├── run_api.py            # API server entry point
-└── config.yaml           # Database and API configuration
-```
 
-### Key Design Principles
-- **SOLID principles** - Single responsibility, dependency injection
-- **Repository pattern** - Database abstraction layer
-- **Interface segregation** - Clean contracts for each component
-- **Temporary storage** - SQLite files instead of RAM for reliability
-- **Async support** - Both sync and async implementations
+Each row stores the full API response for one reference entry. Salary percentiles (p25/p50/p75), sample size, and experience breakdowns are extracted from `data` at query time via SQL or Superset.
 
-## 💾 Data Storage Strategy
+## API
 
-### Temporary Storage During Scraping
-- **SQLite files** (default) - Reliable, file-based, no extra connections
-- **PostgreSQL temp tables** (optional) - Same DB transactions, auto cleanup
+| Method | Path | Description |
+|---|---|---|
+| GET | `/health` | Database connectivity check |
+| GET | `/api/status` | Current job state and job ID |
+| POST | `/api/scrape` | Start a full scraping run |
+| GET | `/docs` | OpenAPI spec (Swagger UI) |
 
-### Permanent Storage
-- **PostgreSQL** (Supabase) - All scraped salary data and references
-- **Reference tables**: specializations (165), skills (1,572), regions (93), companies (467)
-- **Reports table**: JSON salary data with timestamps
+Only one scraping job runs at a time. Subsequent `POST /api/scrape` requests return `409` while a job is active.
 
-## 🔌 REST API Endpoints
+## Configuration
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/` | API info and available endpoints |
-| GET | `/health` | Health check and database status |
-| GET | `/api/status` | Current scraping job status |
-| POST | `/api/scrape` | Start full scraping (all references) |
-| POST | `/api/scrape/upload` | Upload CSV config and start custom scraping |
-| GET | `/docs` | Interactive Swagger documentation |
-| GET | `/redoc` | Alternative API documentation |
+Environment variables (`.env` or host env):
 
-### API Features
-- **Concurrent job prevention** - Only one scraping job at a time
-- **Background processing** - Non-blocking async execution
-- **File upload support** - Multipart form data for CSV configs
-- **Automatic retries** - Built-in retry logic for API calls
-- **Rate limiting** - Configurable delays between requests
-
-## 🚀 Deployment
-
-### Current Infrastructure
-- **API hosting**: Render.com (free tier)
-- **Database**: Supabase PostgreSQL (free tier)
-- **CI/CD**: GitHub Actions
-- **Monitoring**: Built-in health checks and status endpoints
-
-### Environment Variables
 ```env
-# Database connection (Supabase)
-DATABASE_HOST=aws-0-eu-central-1.pooler.supabase.com
+DATABASE_HOST=localhost
 DATABASE_PORT=5432
-DATABASE_NAME=postgres
-DATABASE_USER=postgres.cehitgienxwzplcxbfdk
-DATABASE_PASSWORD=your_password
+DATABASE_NAME=salaries
+DATABASE_USER=scraper
+DATABASE_PASSWORD=...
 
-# API configuration
-API_URL=https://career.habr.com/api/frontend_v1/salary_calculator/general_graph
 API_DELAY_MIN=1.5
 API_DELAY_MAX=2.5
-
-# Storage type (optional)
-USE_SQLITE_TEMP=true  # or false for PostgreSQL temp tables
+API_RETRY_ATTEMPTS=3
 ```
 
-## 🧪 Local Development
+Falls back to `config.yaml` if `DATABASE_HOST` is not set in environment.
 
-### Prerequisites
-- Python 3.9+
-- PostgreSQL (or use Docker)
-- pip or Poetry
+## Running
 
-### Quick Start
+**API server:**
 ```bash
-# 1. Clone repository
-git clone https://github.com/your-username/salary_scrapping.git
-cd salary_scrapping
-
-# 2. Install dependencies
 pip install -r requirements.txt
-
-# 3. Configure database (edit config.yaml)
-# Or use environment variables
-
-# 4. Run API server
 python run_api.py
-# API available at http://localhost:8000
-
-# 5. Or use CLI version
-python main.py                    # Scrape all references
-python main.py config.csv         # Use custom CSV config
+# http://localhost:8000
 ```
 
-### Docker Setup
+**CLI (one-shot run):**
 ```bash
-# Start PostgreSQL + API
+python main.py
+```
+
+**Docker:**
+```bash
 docker-compose up
-
-# API: http://localhost:8000
-# PostgreSQL: localhost:5432
 ```
 
-### Running Tests
+## Database setup
+
 ```bash
-# Run all tests
-pytest
-
-# With coverage report
-pytest --cov=src --cov-report=html
-
-# Run specific test category
-python run_tests.py unit
-python run_tests.py integration
+psql -d salaries -f "sql queries/01_create_tables.sql"
+psql -d salaries -f "sql queries/03_initial_data.sql"
 ```
 
-### Code Quality
+## BI / Superset
+
+Connect Superset to the same PostgreSQL instance. Salary percentiles and experience distributions are extracted from the `data` JSONB column at query time — no additional ETL step required.
+
+SQL view examples are in `sql queries/`.
+
+## Tests
+
 ```bash
-# Linting
-ruff check src
-
-# Formatting
-black .
-
-# Type checking
-mypy src
+pytest --cov=src
 ```
 
-## 📊 CSV Configuration Format
+## Stack
 
-Create custom scraping configurations with CSV files:
-
-```csv
-skills,regions,specializations
-python,c_678,backend
-javascript,russian_capitals,frontend
-docker,ekaterinburg,devops
-```
-
-Each row represents a combination to scrape. The scraper will:
-1. Parse headers as reference types
-2. Read each row as specific combinations
-3. Make API calls for each combination
-4. Save results to database
-
-## 🔄 CI/CD Pipeline
-
-GitHub Actions workflow on every push:
-1. **Setup** - Python 3.9 environment
-2. **Dependencies** - Install requirements
-3. **Linting** - ruff, black, mypy checks
-4. **Testing** - Run 71 tests with coverage
-5. **Deploy** - Auto-deploy to Render.com on main branch
-
-## 📈 SQL Reports
-
-Pre-built SQL queries in `sql queries/` folder:
-- `readable_report.sql` - Human-friendly salary report
-- `summary_report.sql` - Aggregated statistics by type
-- `top_salaries.sql` - Top 20 highest salaries
-- `simple_report.sql` - Basic data overview
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Make changes and add tests
-4. Ensure all tests pass (`pytest`)
-5. Check code quality (`ruff check`, `black .`, `mypy src`)
-6. Commit changes (`git commit -m 'Add amazing feature'`)
-7. Push to branch (`git push origin feature/amazing-feature`)
-8. Open Pull Request
-
-## 📝 License
-
-This project is for educational purposes. Please respect Habr Career's terms of service when using this scraper.
-
-## 🙏 Acknowledgments
-
-- Built with FastAPI, PostgreSQL, and modern Python practices
-- Deployed on Render.com and Supabase free tiers
-- Inspired by the need for salary transparency in IT
+Python · FastAPI · PostgreSQL · psycopg2 · Docker
